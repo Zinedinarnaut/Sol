@@ -34,6 +34,36 @@ artwork or system files are included in this repository.
 - Optional Sign in with Apple and iCloud profile linking in provisioned builds
 - Widgets, Spotlight, Quick Look, Share, notifications, and the `sol://` URL scheme
 
+## DLSM development benchmark
+
+Tested on the M4's 10-core GPU using Pokémon Legends: Arceus v1.1.1, the same
+warmed language screen, and DLSM Quality rendering 2026 × 1103 → 3024 × 1646 —
+55.1% fewer internal pixels.
+
+| Mode | Source → output FPS | GPU busy | DLSM GPU median / p95 | Metal memory | Process CPU<sup>*</sup> |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Native / Off | 30.0 → 30.0 | 48.1% | 0 ms | 317.5 MiB | 60.4% |
+| Spatial Quality | 30.0 → 30.0 | 42.3% | 1.27 / 3.30 ms | 371.9 MiB | 84.4% |
+| Temporal Quality | 30.0 → 30.0 | 60.0% | 11.54 / 18.16 ms | 633.9 MiB | 77.7% |
+| Temporal + Frame Gen | 21.6 → 43.2 | 72.4% | ≈23.02 / 25.60 ms | 714.4 MiB | 87.2% |
+
+<sup>*</sup> 100% CPU equals one fully occupied CPU core.
+
+DLSM remains an experimental developer feature and is disabled in normal
+public-preview launches.
+
+### The honest verdict
+
+- Spatial keeps 30 FPS while reducing GPU activity by about 12%. It is the best
+  current mode, though CPU use and frame pacing still need attention.
+- Temporal provides no benefit in this capped scene while adding roughly
+  316 MiB of Metal memory and substantial GPU cost.
+- Frame Generation produces additional frames, but throttles the real renderer
+  from 30 to 21.6 FPS. Output reaches 43.2 FPS—not the intended 60—and latency
+  will feel worse.
+- A GPU-bound, unlocked in-game scene is still needed to measure genuine
+  performance uplift. This test primarily measures DLSM pipeline overhead.
+
 ## Requirements
 
 - Apple Silicon Mac

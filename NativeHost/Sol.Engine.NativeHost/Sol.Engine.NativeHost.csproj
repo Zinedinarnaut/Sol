@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>preview</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <PublishAot>true</PublishAot>
+    <NativeLib>Shared</NativeLib>
+    <SelfContained>true</SelfContained>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <AssemblyName>Sol.Engine.NativeHost</AssemblyName>
+    <RootNamespace>Sol.Engine.NativeHost</RootNamespace>
+    <Product>Sol Engine</Product>
+    <Title>Sol Engine Native Host</Title>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../Vendor/Ryubing/src/Ryujinx.Common/Ryujinx.Common.csproj" />
+  </ItemGroup>
+</Project>

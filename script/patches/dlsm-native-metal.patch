@@ -1,0 +1,1731 @@
+diff --git a/src/Ryujinx.Graphics.Vulkan/DescriptorSetUpdater.cs b/src/Ryujinx.Graphics.Vulkan/DescriptorSetUpdater.cs
+index 2daa048..3fdd778 100644
+--- a/src/Ryujinx.Graphics.Vulkan/DescriptorSetUpdater.cs
++++ b/src/Ryujinx.Graphics.Vulkan/DescriptorSetUpdater.cs
+@@ -389,6 +389,98 @@ namespace Ryujinx.Graphics.Vulkan
+             _dirty = DirtyFlags.All;
+         }
+ 
++        internal void CollectBoundTextureStorages(HashSet<TextureStorage> storages)
++        {
++            if (_program == null)
++            {
++                return;
++            }
++
++            if (_program.BindingSegments.Length > PipelineBase.TextureSetIndex)
++            {
++                foreach (ResourceBindingSegment segment in _program.BindingSegments[PipelineBase.TextureSetIndex])
++                {
++                    if (segment.IsArray)
++                    {
++                        if ((uint)segment.Binding < _textureArrayRefs.Length)
++                        {
++                            _textureArrayRefs[segment.Binding].Array?.CollectStorages(storages);
++                        }
++                    }
++                    else if (segment.Type != ResourceType.BufferTexture)
++                    {
++                        int end = Math.Min(_textureRefs.Length, segment.Binding + segment.Count);
++                        for (int binding = segment.Binding; binding < end; binding++)
++                        {
++                            TextureStorage storage = _textureRefs[binding].View?.Storage;
++                            if (storage != null)
++                            {
++                                storages.Add(storage);
++                            }
++                        }
++                    }
++                }
++            }
++
++            if (_program.BindingSegments.Length > PipelineBase.ImageSetIndex)
++            {
++                foreach (ResourceBindingSegment segment in _program.BindingSegments[PipelineBase.ImageSetIndex])
++                {
++                    if (segment.IsArray)
++                    {
++                        if ((uint)segment.Binding < _imageArrayRefs.Length)
++                        {
++                            _imageArrayRefs[segment.Binding].Array?.CollectStorages(storages);
++                        }
++                    }
++                    else if (segment.Type != ResourceType.BufferImage)
++                    {
++                        int end = Math.Min(_imageRefs.Length, segment.Binding + segment.Count);
++                        for (int binding = segment.Binding; binding < end; binding++)
++                        {
++                            TextureStorage storage = _imageRefs[binding].View?.Storage;
++                            if (storage != null)
++                            {
++                                storages.Add(storage);
++                            }
++                        }
++                    }
++                }
++            }
++
++            for (int setIndex = PipelineBase.DescriptorSetLayouts;
++                 setIndex < _program.BindingSegments.Length;
++                 setIndex++)
++            {
++                ResourceBindingSegment[] segments = _program.BindingSegments[setIndex];
++                if (segments.Length == 0 || !segments[0].IsArray)
++                {
++                    continue;
++                }
++
++                int extraIndex = setIndex - PipelineBase.DescriptorSetLayouts;
++                ResourceType type = segments[0].Type;
++
++                if (type is ResourceType.Texture or
++                    ResourceType.Sampler or
++                    ResourceType.TextureAndSampler or
++                    ResourceType.BufferTexture)
++                {
++                    if ((uint)extraIndex < _textureArrayExtraRefs.Length)
++                    {
++                        _textureArrayExtraRefs[extraIndex].Array?.CollectStorages(storages);
++                    }
++                }
++                else if (type is ResourceType.Image or ResourceType.BufferImage)
++                {
++                    if ((uint)extraIndex < _imageArrayExtraRefs.Length)
++                    {
++                        _imageArrayExtraRefs[extraIndex].Array?.CollectStorages(storages);
++                    }
++                }
++            }
++        }
++
+         public void SetImage(CommandBufferScoped cbs, ShaderStage stage, int binding, ITexture image)
+         {
+             if (image is TextureBuffer imageBuffer)
+diff --git a/src/Ryujinx.Graphics.Vulkan/ImageArray.cs b/src/Ryujinx.Graphics.Vulkan/ImageArray.cs
+index 47c1806..3c6250f 100644
+--- a/src/Ryujinx.Graphics.Vulkan/ImageArray.cs
++++ b/src/Ryujinx.Graphics.Vulkan/ImageArray.cs
+@@ -112,6 +112,23 @@ namespace Ryujinx.Graphics.Vulkan
+             }
+         }
+ 
++        internal void CollectStorages(HashSet<TextureStorage> storages)
++        {
++            if (_textureRefs == null)
++            {
++                return;
++            }
++
++            for (int index = 0; index < _textureRefs.Length; index++)
++            {
++                TextureStorage storage = _textureRefs[index].Storage;
++                if (storage != null)
++                {
++                    storages.Add(storage);
++                }
++            }
++        }
++
+         public ReadOnlySpan<DescriptorImageInfo> GetImageInfos(VulkanRenderer gd, CommandBufferScoped cbs, TextureView dummyTexture)
+         {
+             int submissionCount = gd.CommandBufferPool.GetSubmissionCount(cbs.CommandBufferIndex);
+diff --git a/src/Ryujinx.Graphics.Vulkan/PipelineBase.cs b/src/Ryujinx.Graphics.Vulkan/PipelineBase.cs
+index 0172b5b..ca92185 100644
+--- a/src/Ryujinx.Graphics.Vulkan/PipelineBase.cs
++++ b/src/Ryujinx.Graphics.Vulkan/PipelineBase.cs
+@@ -1726,6 +1726,11 @@ namespace Ryujinx.Graphics.Vulkan
+         {
+             if (!RenderPassActive)
+             {
++                if (IsMainPipeline)
++                {
++                    Gd.AttachmentDiscovery.RecordRenderPass(FramebufferParams, _descriptorSetUpdater);
++                }
++
+                 FramebufferParams.InsertLoadOpBarriers(Gd, Cbs);
+ 
+                 Rect2D renderArea = new(null, new Extent2D(FramebufferParams.Width, FramebufferParams.Height));
+diff --git a/src/Ryujinx.Graphics.Vulkan/TextureArray.cs b/src/Ryujinx.Graphics.Vulkan/TextureArray.cs
+index 2511f57..5b34cd0 100644
+--- a/src/Ryujinx.Graphics.Vulkan/TextureArray.cs
++++ b/src/Ryujinx.Graphics.Vulkan/TextureArray.cs
+@@ -132,6 +132,23 @@ namespace Ryujinx.Graphics.Vulkan
+             }
+         }
+ 
++        internal void CollectStorages(HashSet<TextureStorage> storages)
++        {
++            if (_textureRefs == null)
++            {
++                return;
++            }
++
++            for (int index = 0; index < _textureRefs.Length; index++)
++            {
++                TextureStorage storage = _textureRefs[index].Storage;
++                if (storage != null)
++                {
++                    storages.Add(storage);
++                }
++            }
++        }
++
+         public ReadOnlySpan<DescriptorImageInfo> GetImageInfos(VulkanRenderer gd, CommandBufferScoped cbs, TextureView dummyTexture, SamplerHolder dummySampler)
+         {
+             int submissionCount = gd.CommandBufferPool.GetSubmissionCount(cbs.CommandBufferIndex);
+diff --git a/src/Ryujinx.Graphics.Vulkan/TextureView.cs b/src/Ryujinx.Graphics.Vulkan/TextureView.cs
+index b6c0b83..8c156ff 100644
+--- a/src/Ryujinx.Graphics.Vulkan/TextureView.cs
++++ b/src/Ryujinx.Graphics.Vulkan/TextureView.cs
+@@ -26,6 +26,7 @@ namespace Ryujinx.Graphics.Vulkan
+         private int _hazardUses;
+ 
+         private readonly TextureCreateInfo _info;
++        private long _exportedMetalTexture;
+ 
+         private HashTableSlim<RenderPassCacheKey, RenderPassHolder> _renderPasses;
+ 
+@@ -110,6 +111,16 @@ namespace Ryujinx.Graphics.Vulkan
+                     SType = StructureType.ImageViewUsageCreateInfo,
+                     Usage = usageFlags,
+                 };
++                ExportMetalObjectCreateInfoEXT exportMetalTexture = new()
++                {
++                    SType = StructureType.ExportMetalObjectCreateInfoExt,
++                    ExportObjectType = (ExportMetalObjectTypeFlagsEXT)8,
++                };
++                if (gd.MetalObjectsApi != null &&
++                    MetalFxPresentation.IsAttachmentDiscoveryEnabled)
++                {
++                    imageViewUsage.PNext = &exportMetalTexture;
++                }
+ 
+                 ImageViewCreateInfo imageCreateInfo = new()
+                 {
+@@ -210,6 +221,53 @@ namespace Ryujinx.Graphics.Vulkan
+             return _imageView2dArray ?? _imageViewDraw;
+         }
+ 
++        internal unsafe bool TryExportMetalTexture(out nint metalTexture)
++        {
++            metalTexture = 0;
++            if (!Valid ||
++                Storage == null ||
++                _gd.MetalObjectsApi == null ||
++                !MetalFxPresentation.IsAttachmentDiscoveryEnabled)
++            {
++                return false;
++            }
++
++            long cachedTexture = Interlocked.Read(ref _exportedMetalTexture);
++            if (cachedTexture != 0)
++            {
++                metalTexture = (nint)cachedTexture;
++                return true;
++            }
++
++            ExportMetalTextureInfoEXT textureInfo = new()
++            {
++                SType = StructureType.ExportMetalTextureInfoExt,
++                ImageView = _imageViewIdentity.GetUnsafe().Value,
++                Plane = Info.Format.IsDepthOrStencil
++                    ? ImageAspectFlags.DepthBit
++                    : ImageAspectFlags.ColorBit,
++            };
++            ExportMetalObjectsInfoEXT objectsInfo = new()
++            {
++                SType = StructureType.ExportMetalObjectsInfoExt,
++                PNext = &textureInfo,
++            };
++            _gd.MetalObjectsApi.ExportMetalObjects(_device, &objectsInfo);
++
++            metalTexture = (nint)textureInfo.MtlTexture;
++            if (metalTexture == 0)
++            {
++                return false;
++            }
++
++            Interlocked.CompareExchange(
++                ref _exportedMetalTexture,
++                (long)metalTexture,
++                0
++            );
++            return true;
++        }
++
+         public void CopyTo(ITexture destination, int firstLayer, int firstLevel)
+         {
+             TextureView src = this;
+@@ -220,6 +278,11 @@ namespace Ryujinx.Graphics.Vulkan
+                 return;
+             }
+ 
++            if (_gd.CommandBufferPool.OwnedByCurrentThread)
++            {
++                _gd.AttachmentDiscovery.RecordCopy(src, dst);
++            }
++
+             _gd.PipelineInternal.EndRenderPass();
+ 
+             CommandBufferScoped cbs = _gd.PipelineInternal.CurrentCommandBuffer;
+@@ -282,6 +345,11 @@ namespace Ryujinx.Graphics.Vulkan
+                 return;
+             }
+ 
++            if (_gd.CommandBufferPool.OwnedByCurrentThread)
++            {
++                _gd.AttachmentDiscovery.RecordCopy(src, dst);
++            }
++
+             _gd.PipelineInternal.EndRenderPass();
+ 
+             CommandBufferScoped cbs = _gd.PipelineInternal.CurrentCommandBuffer;
+@@ -335,6 +403,11 @@ namespace Ryujinx.Graphics.Vulkan
+ 
+             if (_gd.CommandBufferPool.OwnedByCurrentThread)
+             {
++                if (Valid && dst.Valid)
++                {
++                    _gd.AttachmentDiscovery.RecordCopy(this, dst);
++                }
++
+                 _gd.PipelineInternal.EndRenderPass();
+ 
+                 CommandBufferScoped cbs = _gd.PipelineInternal.CurrentCommandBuffer;
+diff --git a/src/Ryujinx.Graphics.Vulkan/VulkanInitialization.cs b/src/Ryujinx.Graphics.Vulkan/VulkanInitialization.cs
+index 9cd8f90..7d1e124 100644
+--- a/src/Ryujinx.Graphics.Vulkan/VulkanInitialization.cs
++++ b/src/Ryujinx.Graphics.Vulkan/VulkanInitialization.cs
+@@ -47,7 +47,8 @@ namespace Ryujinx.Graphics.Vulkan
+             "VK_KHR_8bit_storage",
+             "VK_KHR_maintenance2",
+             "VK_EXT_attachment_feedback_loop_layout",
+-            "VK_EXT_attachment_feedback_loop_dynamic_state"
++            "VK_EXT_attachment_feedback_loop_dynamic_state",
++            "VK_EXT_metal_objects"
+         ];
+ 
+         private static readonly string[] _requiredExtensions =
+@@ -120,6 +121,17 @@ namespace Ryujinx.Graphics.Vulkan
+                 EnabledLayerCount = (uint)enabledLayers.Count,
+             };
+ 
++            ExportMetalObjectCreateInfoEXT exportMetalCommandQueue = new()
++            {
++                SType = StructureType.ExportMetalObjectCreateInfoExt,
++                ExportObjectType = (ExportMetalObjectTypeFlagsEXT)2,
++            };
++
++            if (OperatingSystem.IsMacOS())
++            {
++                instanceCreateInfo.PNext = &exportMetalCommandQueue;
++            }
++
+             Result result = VulkanInstance.Create(api, ref instanceCreateInfo, out VulkanInstance instance);
+ 
+             Marshal.FreeHGlobal(appName);
+diff --git a/src/Ryujinx.Graphics.Vulkan/VulkanRenderer.cs b/src/Ryujinx.Graphics.Vulkan/VulkanRenderer.cs
+index d2170a6..d86896e 100644
+--- a/src/Ryujinx.Graphics.Vulkan/VulkanRenderer.cs
++++ b/src/Ryujinx.Graphics.Vulkan/VulkanRenderer.cs
+@@ -45,6 +45,7 @@ namespace Ryujinx.Graphics.Vulkan
+         internal ExtTransformFeedback TransformFeedbackApi { get; private set; }
+         internal KhrDrawIndirectCount DrawIndirectCountApi { get; private set; }
+         internal ExtAttachmentFeedbackLoopDynamicState DynamicFeedbackLoopApi { get; private set; }
++        internal ExtMetalObjects MetalObjectsApi { get; private set; }
+ 
+         internal uint QueueFamilyIndex { get; private set; }
+         internal Queue Queue { get; private set; }
+@@ -73,6 +74,7 @@ namespace Ryujinx.Graphics.Vulkan
+ 
+         internal HelperShader HelperShader { get; private set; }
+         internal PipelineFull PipelineInternal => _pipeline;
++        internal MetalFxAttachmentDiscovery AttachmentDiscovery { get; }
+ 
+         internal BarrierBatch Barriers { get; private set; }
+ 
+@@ -120,6 +122,7 @@ namespace Ryujinx.Graphics.Vulkan
+             Shaders = [];
+             Textures = [];
+             Samplers = [];
++            AttachmentDiscovery = new();
+ 
+             // Any device running on MacOS is using MoltenVK, even Intel and AMD vendors.
+             if (IsMoltenVk = OperatingSystem.IsMacOS())
+@@ -168,6 +171,11 @@ namespace Ryujinx.Graphics.Vulkan
+                 DynamicFeedbackLoopApi = dynamicFeedbackLoopApi;
+             }
+ 
++            if (Api.TryGetDeviceExtension(_instance.Instance, _device, out ExtMetalObjects metalObjectsApi))
++            {
++                MetalObjectsApi = metalObjectsApi;
++            }
++
+             if (maxQueueCount >= 2)
+             {
+                 Api.GetDeviceQueue(_device, queueFamilyIndex, 1, out Queue backgroundQueue);
+diff --git a/src/Ryujinx.Graphics.Vulkan/Window.cs b/src/Ryujinx.Graphics.Vulkan/Window.cs
+index eb8d433..6355e65 100644
+--- a/src/Ryujinx.Graphics.Vulkan/Window.cs
++++ b/src/Ryujinx.Graphics.Vulkan/Window.cs
+@@ -2,8 +2,10 @@ using Ryujinx.Common.Configuration;
+ using Ryujinx.Graphics.GAL;
+ using Ryujinx.Graphics.Vulkan.Effects;
+ using Silk.NET.Vulkan;
++using Silk.NET.Vulkan.Extensions.EXT;
+ using Silk.NET.Vulkan.Extensions.KHR;
+ using System;
++using System.Diagnostics;
+ using System.Linq;
+ using VkFormat = Silk.NET.Vulkan.Format;
+ 
+@@ -22,6 +24,11 @@ namespace Ryujinx.Graphics.Vulkan
+ 
+         private Image[] _swapchainImages;
+         private TextureView[] _swapchainImageViews;
++        private nint[] _swapchainMetalTextures;
++        private nint _metalCommandQueue;
++        private ulong _metalFxFrameId;
++        private long _metalFxLastTimestamp;
++        private bool _metalFxResetHistory = true;
+ 
+         private Semaphore[] _imageAvailableSemaphores;
+         private Semaphore[] _renderFinishedSemaphores;
+@@ -50,6 +57,7 @@ namespace Ryujinx.Graphics.Vulkan
+             _device = device;
+             _surface = surface;
+ 
++            InitializeMetalCommandQueue();
+             CreateSwapchain();
+         }
+ 
+@@ -87,6 +95,9 @@ namespace Ryujinx.Graphics.Vulkan
+ 
+         private unsafe void CreateSwapchain()
+         {
++            _metalFxResetHistory = true;
++            _metalFxLastTimestamp = 0;
++
+             _gd.SurfaceApi.GetPhysicalDeviceSurfaceCapabilities(_physicalDevice, _surface, out SurfaceCapabilitiesKHR capabilities);
+ 
+             uint surfaceFormatsCount;
+@@ -135,7 +146,10 @@ namespace Ryujinx.Graphics.Vulkan
+                 ImageFormat = surfaceFormat.Format,
+                 ImageColorSpace = surfaceFormat.ColorSpace,
+                 ImageExtent = extent,
+-                ImageUsage = ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.TransferDstBit | ImageUsageFlags.StorageBit,
++                ImageUsage = ImageUsageFlags.ColorAttachmentBit |
++                    ImageUsageFlags.TransferDstBit |
++                    ImageUsageFlags.StorageBit |
++                    ImageUsageFlags.SampledBit,
+                 ImageSharingMode = SharingMode.Exclusive,
+                 ImageArrayLayers = 1,
+                 PreTransform = capabilities.CurrentTransform,
+@@ -173,10 +187,15 @@ namespace Ryujinx.Graphics.Vulkan
+             }
+ 
+             _swapchainImageViews = new TextureView[imageCount];
++            _swapchainMetalTextures = new nint[imageCount];
+ 
+             for (int i = 0; i < _swapchainImageViews.Length; i++)
+             {
+-                _swapchainImageViews[i] = CreateSwapchainImageView(_swapchainImages[i], surfaceFormat.Format, textureCreateInfo);
++                _swapchainImageViews[i] = CreateSwapchainImageView(
++                    _swapchainImages[i],
++                    surfaceFormat.Format,
++                    textureCreateInfo,
++                    out _swapchainMetalTextures[i]);
+             }
+ 
+             SemaphoreCreateInfo semaphoreCreateInfo = new()
+@@ -199,7 +218,11 @@ namespace Ryujinx.Graphics.Vulkan
+             }
+         }
+ 
+-        private unsafe TextureView CreateSwapchainImageView(Image swapchainImage, VkFormat format, TextureCreateInfo info)
++        private unsafe TextureView CreateSwapchainImageView(
++            Image swapchainImage,
++            VkFormat format,
++            TextureCreateInfo info,
++            out nint metalTexture)
+         {
+             ComponentMapping componentMapping = new(
+                 ComponentSwizzle.R,
+@@ -221,11 +244,66 @@ namespace Ryujinx.Graphics.Vulkan
+                 SubresourceRange = subresourceRange,
+             };
+ 
++            ExportMetalObjectCreateInfoEXT exportMetalTexture = new()
++            {
++                SType = StructureType.ExportMetalObjectCreateInfoExt,
++                ExportObjectType = (ExportMetalObjectTypeFlagsEXT)8,
++            };
++
++            if (_gd.MetalObjectsApi != null)
++            {
++                imageCreateInfo.PNext = &exportMetalTexture;
++            }
++
+             _gd.Api.CreateImageView(_device, in imageCreateInfo, null, out ImageView imageView).ThrowOnError();
++            metalTexture = ExportMetalTexture(imageView);
+ 
+             return new TextureView(_gd, _device, new DisposableImageView(_gd.Api, _device, imageView), info, format);
+         }
+ 
++        private unsafe void InitializeMetalCommandQueue()
++        {
++            if (_gd.MetalObjectsApi == null)
++            {
++                return;
++            }
++
++            ExportMetalCommandQueueInfoEXT commandQueueInfo = new()
++            {
++                SType = StructureType.ExportMetalCommandQueueInfoExt,
++                Queue = _gd.Queue,
++            };
++            ExportMetalObjectsInfoEXT objectsInfo = new()
++            {
++                SType = StructureType.ExportMetalObjectsInfoExt,
++                PNext = &commandQueueInfo,
++            };
++            _gd.MetalObjectsApi.ExportMetalObjects(_device, &objectsInfo);
++            _metalCommandQueue = (nint)commandQueueInfo.MtlCommandQueue;
++        }
++
++        private unsafe nint ExportMetalTexture(ImageView imageView)
++        {
++            if (_gd.MetalObjectsApi == null)
++            {
++                return 0;
++            }
++
++            ExportMetalTextureInfoEXT textureInfo = new()
++            {
++                SType = StructureType.ExportMetalTextureInfoExt,
++                ImageView = imageView,
++                Plane = ImageAspectFlags.ColorBit,
++            };
++            ExportMetalObjectsInfoEXT objectsInfo = new()
++            {
++                SType = StructureType.ExportMetalObjectsInfoExt,
++                PNext = &textureInfo,
++            };
++            _gd.MetalObjectsApi.ExportMetalObjects(_device, &objectsInfo);
++            return (nint)textureInfo.MtlTexture;
++        }
++
+         private static SurfaceFormatKHR ChooseSwapSurfaceFormat(SurfaceFormatKHR[] availableFormats, bool colorSpacePassthroughEnabled)
+         {
+             if (availableFormats.Length == 1 && availableFormats[0].Format == VkFormat.Undefined)
+@@ -355,6 +433,7 @@ namespace Ryujinx.Graphics.Vulkan
+                 ImageLayout.General);
+ 
+             TextureView view = (TextureView)texture;
++            _gd.AttachmentDiscovery.CompleteFrame(view);
+ 
+             UpdateEffect();
+ 
+@@ -482,6 +561,51 @@ namespace Ryujinx.Graphics.Vulkan
+ 
+             lock (_gd.QueueLock)
+             {
++                nint metalTexture = _swapchainMetalTextures[nextImage];
++                if (_metalCommandQueue != 0 && metalTexture != 0)
++                {
++                    long timestamp = Stopwatch.GetTimestamp();
++                    float deltaTime = _metalFxLastTimestamp == 0
++                        ? 0f
++                        : (float)Stopwatch.GetElapsedTime(_metalFxLastTimestamp, timestamp).TotalSeconds;
++                    MetalFxFrameFlags flags = MetalFxFrameFlags.Color;
++                    if (_metalFxResetHistory)
++                    {
++                        flags |= MetalFxFrameFlags.Discontinuity;
++                    }
++
++                    MetalFxFrame frame = new(
++                        ++_metalFxFrameId,
++                        flags,
++                        _metalCommandQueue,
++                        metalTexture,
++                        0,
++                        0,
++                        _width,
++                        _height,
++                        0,
++                        0,
++                        0,
++                        0,
++                        _format == VkFormat.B8G8R8A8Srgb
++                            ? MetalFxTextureFormat.Bgra8UnormSrgb
++                            : MetalFxTextureFormat.Bgra8Unorm,
++                        MetalFxTextureFormat.Unknown,
++                        MetalFxTextureFormat.Unknown,
++                        1f,
++                        1f,
++                        0f,
++                        0f,
++                        0f,
++                        0f,
++                        0f,
++                        _height > 0 ? (float)_width / _height : 0f,
++                        deltaTime,
++                        (ulong)(timestamp * (1_000_000_000d / Stopwatch.Frequency)));
++
++                    _metalFxResetHistory = !MetalFxPresentation.TryPresent(in frame);
++                    _metalFxLastTimestamp = timestamp;
++                }
+                 _gd.SwapchainApi.QueuePresent(_gd.Queue, in presentInfo);
+             }
+         }
+diff --git a/src/Ryujinx.Input.SDL3/SDL3Keyboard.cs b/src/Ryujinx.Input.SDL3/SDL3Keyboard.cs
+index cf3f0c9..ed1b95d 100644
+--- a/src/Ryujinx.Input.SDL3/SDL3Keyboard.cs
++++ b/src/Ryujinx.Input.SDL3/SDL3Keyboard.cs
+@@ -13,8 +13,10 @@ using ConfigPhysicalKey = Ryujinx.Common.Configuration.Hid.PhysicalKey;
+ 
+ namespace Ryujinx.Input.SDL3
+ {
+-    class SDL3Keyboard : IKeyboard
++    public class SDL3Keyboard : IKeyboard
+     {
++        private const int ExternalScancodeCount = 512;
++        private static readonly int[] _externalKeyState = new int[ExternalScancodeCount];
+         private readonly Lock _userMappingLock = new();
+         private StandardKeyboardInputConfig _configuration;
+         private readonly List<KeyboardInputMappingHelper.KeyboardButtonMapping> _buttonsUserMapping;
+@@ -184,6 +186,29 @@ namespace Ryujinx.Input.SDL3
+             // No operations
+         }
+ 
++        public static bool SetExternalKeyState(int scancode, bool pressed)
++        {
++            if ((uint)scancode >= ExternalScancodeCount)
++            {
++                return false;
++            }
++
++            Volatile.Write(ref _externalKeyState[scancode], pressed ? 1 : 0);
++            return true;
++        }
++
++        public static void ClearExternalKeyState()
++        {
++            Array.Clear(_externalKeyState);
++        }
++
++        [MethodImpl(MethodImplOptions.AggressiveInlining)]
++        private static bool IsExternalKeyPressed(int scancode)
++        {
++            return (uint)scancode < ExternalScancodeCount &&
++                Volatile.Read(ref _externalKeyState[scancode]) != 0;
++        }
++
+         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+         private unsafe static int ToSDL3Scancode(ConfigPhysicalKey key)
+         {
+@@ -212,6 +237,22 @@ namespace Ryujinx.Input.SDL3
+             };
+         }
+ 
++        private static int GetExternalModifierScancode(ConfigPhysicalKey key)
++        {
++            return key switch
++            {
++                ConfigPhysicalKey.ControlLeft => 224,
++                ConfigPhysicalKey.ShiftLeft => 225,
++                ConfigPhysicalKey.AltLeft => 226,
++                ConfigPhysicalKey.WinLeft => 227,
++                ConfigPhysicalKey.ControlRight => 228,
++                ConfigPhysicalKey.ShiftRight => 229,
++                ConfigPhysicalKey.AltRight => 230,
++                ConfigPhysicalKey.WinRight => 231,
++                _ => -1,
++            };
++        }
++
+         public unsafe KeyboardStateSnapshot GetKeyboardStateSnapshot()
+         {
+             SDLBool* rawKeyboardState;
+@@ -236,11 +277,16 @@ namespace Ryujinx.Input.SDL3
+                         continue;
+                     }
+ 
+-                    keysState[(int)key] = (rawKeyboardModifierState & modifierMask) == modifierMask;
++                    int externalScancode = GetExternalModifierScancode(key);
++                    keysState[(int)key] =
++                        (rawKeyboardModifierState & modifierMask) == modifierMask ||
++                        IsExternalKeyPressed(externalScancode);
+                 }
+                 else
+                 {
+-                    keysState[(int)key] = rawKeyboardState[index];
++                    keysState[(int)key] =
++                        rawKeyboardState[index] ||
++                        IsExternalKeyPressed(index);
+                 }
+             }
+ 
+diff --git a/src/Ryujinx.Graphics.Vulkan/MetalFxAttachmentDiscovery.cs b/src/Ryujinx.Graphics.Vulkan/MetalFxAttachmentDiscovery.cs
+new file mode 100644
+index 0000000..9898f5b
+--- /dev/null
++++ b/src/Ryujinx.Graphics.Vulkan/MetalFxAttachmentDiscovery.cs
+@@ -0,0 +1,799 @@
++using System;
++using System.Collections.Generic;
++using System.Runtime.CompilerServices;
++using Ryujinx.Graphics.GAL;
++using Format = Ryujinx.Graphics.GAL.Format;
++
++namespace Ryujinx.Graphics.Vulkan
++{
++    /// <summary>
++    /// Passively identifies renderer-owned scene color, depth, and motion-vector
++    /// attachment families. Results are diagnostic only: candidates never enter
++    /// the MetalFX frame contract until a later, explicit provider milestone.
++    /// </summary>
++    internal sealed class MetalFxAttachmentDiscovery
++    {
++        private const int MaxTrackedTextures = 256;
++        private const int MaxTrackedPasses = 512;
++        private const int MaxDependencyDepth = 4;
++        private const ulong ReportIntervalFrames = 600;
++        private const ulong LabelChangeReportSpacingFrames = 120;
++
++        private sealed class ReferenceComparer<T> : IEqualityComparer<T> where T : class
++        {
++            public static readonly ReferenceComparer<T> Instance = new();
++
++            public bool Equals(T x, T y)
++            {
++                return ReferenceEquals(x, y);
++            }
++
++            public int GetHashCode(T value)
++            {
++                return RuntimeHelpers.GetHashCode(value);
++            }
++        }
++
++        private sealed class TextureObservation
++        {
++            public TextureStorage Storage;
++            public TextureView View;
++            public Format Format;
++            public int Width;
++            public int Height;
++            public int ColorPasses;
++            public int DepthPasses;
++            public int CopyWrites;
++            public int SamplePasses;
++            public int FirstWritePass = int.MaxValue;
++            public int LastWritePass;
++            public int LastSamplePass;
++            public uint ColorSlots;
++        }
++
++        private sealed class Candidate
++        {
++            public TextureObservation Texture;
++            public int Score;
++            public int RunnerMargin = 100;
++            public int PairPasses;
++            public string Evidence;
++            public bool LinkedToPresented;
++        }
++
++        private readonly Dictionary<TextureStorage, TextureObservation> _textures =
++            new(ReferenceComparer<TextureStorage>.Instance);
++        private readonly Dictionary<TextureStorage, Dictionary<TextureStorage, int>> _inputsByOutput =
++            new(ReferenceComparer<TextureStorage>.Instance);
++        private readonly Dictionary<TextureStorage, Dictionary<TextureStorage, int>> _depthByColor =
++            new(ReferenceComparer<TextureStorage>.Instance);
++        private readonly Dictionary<TextureStorage, Dictionary<TextureStorage, int>> _mrtByColor =
++            new(ReferenceComparer<TextureStorage>.Instance);
++        private readonly HashSet<TextureStorage> _readScratch =
++            new(ReferenceComparer<TextureStorage>.Instance);
++        private readonly List<TextureObservation> _colorScratch = [];
++        private readonly Dictionary<TextureStorage, int> _dependencyDistances =
++            new(ReferenceComparer<TextureStorage>.Instance);
++        private readonly Queue<TextureStorage> _dependencyQueue = new();
++
++        private ulong _frameId;
++        private int _passCount;
++        private bool _truncated;
++
++        private string _previousSceneSignature = string.Empty;
++        private string _previousDepthSignature = string.Empty;
++        private string _previousMotionSignature = string.Empty;
++        private int _sceneSightings;
++        private int _depthSightings;
++        private int _motionSightings;
++        private int _sceneMissedFrames;
++        private int _depthMissedFrames;
++        private int _motionMissedFrames;
++
++        private string _lastPublishedState = string.Empty;
++        private ulong _lastPublishedFrame;
++        private string _providerSceneSignature = string.Empty;
++        private string _lastProviderState = string.Empty;
++        private int _providerGeneration = 1;
++
++        internal void RecordRenderPass(
++            FramebufferParams framebuffer,
++            DescriptorSetUpdater descriptorSetUpdater)
++        {
++            if (!MetalFxPresentation.IsAttachmentDiscoveryEnabled ||
++                framebuffer == null ||
++                _passCount >= MaxTrackedPasses)
++            {
++                _truncated |= _passCount >= MaxTrackedPasses;
++                return;
++            }
++
++            _passCount++;
++            _colorScratch.Clear();
++
++            for (int index = 0; index <= framebuffer.MaxColorAttachmentIndex; index++)
++            {
++                TextureView view = framebuffer.GetColorView(index);
++                TextureObservation color = Observe(view);
++                if (color == null)
++                {
++                    continue;
++                }
++
++                color.ColorPasses++;
++                color.FirstWritePass = Math.Min(color.FirstWritePass, _passCount);
++                color.LastWritePass = _passCount;
++                color.ColorSlots |= 1u << Math.Min(index, 31);
++                _colorScratch.Add(color);
++            }
++
++            if (_colorScratch.Count == 0)
++            {
++                return;
++            }
++
++            _readScratch.Clear();
++            descriptorSetUpdater.CollectBoundTextureStorages(_readScratch);
++
++            foreach (TextureStorage readStorage in _readScratch)
++            {
++                TextureObservation read = Observe(readStorage);
++                if (read == null)
++                {
++                    continue;
++                }
++
++                read.SamplePasses++;
++                read.LastSamplePass = _passCount;
++
++                foreach (TextureObservation color in _colorScratch)
++                {
++                    if (!ReferenceEquals(readStorage, color.Storage))
++                    {
++                        IncrementPair(_inputsByOutput, color.Storage, readStorage);
++                    }
++                }
++            }
++
++            TextureObservation depth = Observe(framebuffer.GetDepthStencilView());
++            if (depth != null)
++            {
++                depth.DepthPasses++;
++                depth.FirstWritePass = Math.Min(depth.FirstWritePass, _passCount);
++                depth.LastWritePass = _passCount;
++
++                foreach (TextureObservation color in _colorScratch)
++                {
++                    IncrementPair(_depthByColor, color.Storage, depth.Storage);
++                }
++            }
++
++            for (int first = 0; first < _colorScratch.Count; first++)
++            {
++                for (int second = first + 1; second < _colorScratch.Count; second++)
++                {
++                    TextureStorage firstStorage = _colorScratch[first].Storage;
++                    TextureStorage secondStorage = _colorScratch[second].Storage;
++                    IncrementPair(_mrtByColor, firstStorage, secondStorage);
++                    IncrementPair(_mrtByColor, secondStorage, firstStorage);
++                }
++            }
++        }
++
++        internal void CompleteFrame(TextureView presented)
++        {
++            if (!MetalFxPresentation.IsAttachmentDiscoveryEnabled)
++            {
++                ResetFrame();
++                return;
++            }
++
++            _frameId++;
++
++            TextureObservation presentedObservation = Observe(presented);
++            Candidate scene = FindSceneCandidate(presentedObservation);
++            Candidate depth = FindDepthCandidate(scene);
++            Candidate motion = FindMotionCandidate(scene);
++            string incomingSceneSignature = CandidateSignature(scene);
++            bool sceneCut =
++                !string.IsNullOrEmpty(_providerSceneSignature) &&
++                !string.IsNullOrEmpty(incomingSceneSignature) &&
++                !string.Equals(
++                    _providerSceneSignature,
++                    incomingSceneSignature,
++                    StringComparison.Ordinal);
++
++            if (sceneCut)
++            {
++                _providerGeneration++;
++            }
++
++            int sceneSightings = UpdateStability(
++                ref _previousSceneSignature,
++                ref _sceneSightings,
++                ref _sceneMissedFrames,
++                CandidateSignature(scene));
++            int depthSightings = UpdateStability(
++                ref _previousDepthSignature,
++                ref _depthSightings,
++                ref _depthMissedFrames,
++                CandidateSignature(depth));
++            int motionSightings = UpdateStability(
++                ref _previousMotionSignature,
++                ref _motionSightings,
++                ref _motionMissedFrames,
++                CandidateSignature(motion));
++
++            string sceneLabel = Classify(scene, sceneSightings);
++            string depthLabel = Classify(depth, depthSightings);
++            string motionLabel = Classify(motion, motionSightings);
++            bool sceneReady = sceneLabel == "stable" && scene?.LinkedToPresented == true;
++            bool depthReady =
++                sceneReady &&
++                depthLabel == "stable" &&
++                depth?.LinkedToPresented == true &&
++                HasExactDimensions(depth.Texture, scene.Texture);
++            bool motionReady =
++                sceneReady &&
++                motionLabel == "stable" &&
++                motion?.LinkedToPresented == true &&
++                HasExactDimensions(motion.Texture, scene.Texture);
++
++            if (sceneReady)
++            {
++                _providerSceneSignature = incomingSceneSignature;
++            }
++
++            bool rawExportReady =
++                sceneReady &&
++                depthReady &&
++                motionReady &&
++                scene.Texture.View.TryExportMetalTexture(out nint sceneMetalTexture) &&
++                depth.Texture.View.TryExportMetalTexture(out nint depthMetalTexture) &&
++                motion.Texture.View.TryExportMetalTexture(out nint motionMetalTexture) &&
++                sceneMetalTexture != 0 &&
++                depthMetalTexture != 0 &&
++                motionMetalTexture != 0;
++
++            // Raw MoltenVK Metal objects are only topology proof. The provider
++            // still must canonicalize depth, prove motion direction/units, and
++            // align every attachment before Temporal can consume them.
++            const bool canonicalExportReady = false;
++            string providerState =
++                $"{_providerGeneration}:{sceneReady}:{depthReady}:{motionReady}:" +
++                $"{rawExportReady}:{canonicalExportReady}:{sceneCut}:{incomingSceneSignature}:" +
++                $"{CandidateSignature(depth)}:{CandidateSignature(motion)}";
++
++            if (!string.Equals(providerState, _lastProviderState, StringComparison.Ordinal))
++            {
++                MetalFxProviderReadiness readiness = new(
++                    _frameId,
++                    _providerGeneration,
++                    sceneReady,
++                    depthReady,
++                    motionReady,
++                    rawExportReady,
++                    canonicalExportReady,
++                    sceneCut,
++                    sceneLabel,
++                    depthLabel,
++                    motionLabel,
++                    depth?.Texture.Format.ToString() ?? "Unknown",
++                    motion?.Texture.Format.ToString() ?? "Unknown",
++                    scene?.Texture.Width ?? 0,
++                    scene?.Texture.Height ?? 0);
++                MetalFxPresentation.ReportProviderReadiness(in readiness);
++                _lastProviderState = providerState;
++            }
++
++            string state =
++                $"{sceneLabel}:{_previousSceneSignature}|" +
++                $"{depthLabel}:{_previousDepthSignature}:{depth?.LinkedToPresented}|" +
++                $"{motionLabel}:{_previousMotionSignature}:{motion?.LinkedToPresented}";
++
++            bool labelChanged = !string.Equals(state, _lastPublishedState, StringComparison.Ordinal);
++            bool shouldPublish =
++                _frameId == 1 ||
++                _frameId - _lastPublishedFrame >= ReportIntervalFrames ||
++                (labelChanged && _frameId - _lastPublishedFrame >= LabelChangeReportSpacingFrames);
++
++            if (shouldPublish)
++            {
++                string truncation = _truncated ? ", scan-bounded" : string.Empty;
++                string message =
++                    $"DLSM attachment labels f{_frameId}: " +
++                    $"scene={DescribeCandidate(scene, sceneLabel, sceneSightings)}; " +
++                    $"depth={DescribeCandidate(depth, depthLabel, depthSightings)}; " +
++                    $"motion={DescribeCandidate(motion, motionLabel, motionSightings)} " +
++                    $"(passes={_passCount}, textures={_textures.Count}{truncation}). " +
++                    $"raw-export={(rawExportReady ? "ready" : "waiting")}; " +
++                    "Native attachment use and Frame Generation remain locked until canonical semantics pass; Sol Temporal can use reconstructed motion meanwhile.";
++
++                MetalFxPresentation.ReportAttachmentLabels(message);
++                _lastPublishedState = state;
++                _lastPublishedFrame = _frameId;
++            }
++
++            ResetFrame();
++        }
++
++        internal void RecordCopy(TextureView source, TextureView destination)
++        {
++            if (!MetalFxPresentation.IsAttachmentDiscoveryEnabled ||
++                source?.Storage == null ||
++                destination?.Storage == null ||
++                ReferenceEquals(source.Storage, destination.Storage) ||
++                _passCount >= MaxTrackedPasses)
++            {
++                _truncated |= _passCount >= MaxTrackedPasses;
++                return;
++            }
++
++            _passCount++;
++
++            TextureObservation sourceObservation = Observe(source);
++            TextureObservation destinationObservation = Observe(destination);
++            if (sourceObservation == null || destinationObservation == null)
++            {
++                return;
++            }
++
++            sourceObservation.SamplePasses++;
++            sourceObservation.LastSamplePass = _passCount;
++            destinationObservation.CopyWrites++;
++            destinationObservation.FirstWritePass = Math.Min(
++                destinationObservation.FirstWritePass,
++                _passCount);
++            destinationObservation.LastWritePass = _passCount;
++
++            IncrementPair(
++                _inputsByOutput,
++                destinationObservation.Storage,
++                sourceObservation.Storage);
++        }
++
++        private Candidate FindSceneCandidate(TextureObservation presented)
++        {
++            if (presented == null)
++            {
++                return null;
++            }
++
++            _dependencyDistances.Clear();
++            _dependencyQueue.Clear();
++            _dependencyDistances[presented.Storage] = 0;
++            _dependencyQueue.Enqueue(presented.Storage);
++
++            while (_dependencyQueue.Count > 0)
++            {
++                TextureStorage output = _dependencyQueue.Dequeue();
++                int distance = _dependencyDistances[output];
++                if (distance >= MaxDependencyDepth ||
++                    !_inputsByOutput.TryGetValue(output, out Dictionary<TextureStorage, int> inputs))
++                {
++                    continue;
++                }
++
++                foreach (TextureStorage input in inputs.Keys)
++                {
++                    if (!_dependencyDistances.ContainsKey(input))
++                    {
++                        _dependencyDistances[input] = distance + 1;
++                        _dependencyQueue.Enqueue(input);
++                    }
++                }
++            }
++
++            Candidate best = null;
++            Candidate runnerUp = null;
++
++            foreach ((TextureStorage storage, int distance) in _dependencyDistances)
++            {
++                if (!_textures.TryGetValue(storage, out TextureObservation observation) ||
++                    observation.ColorPasses == 0)
++                {
++                    continue;
++                }
++
++                int score = Math.Max(4, 35 - distance * 5);
++                score += DimensionScore(observation, presented);
++                score += Math.Min(10, observation.ColorPasses);
++
++                if (_depthByColor.ContainsKey(storage))
++                {
++                    score += 35;
++                }
++
++                if (observation.LastSamplePass > observation.FirstWritePass)
++                {
++                    score += 5;
++                }
++
++                Candidate candidate = new()
++                {
++                    Texture = observation,
++                    Score = Math.Min(100, score),
++                    Evidence = distance == 0 ? "presented" : $"present-chain-{distance}",
++                    LinkedToPresented = true,
++                };
++                InsertCandidate(candidate, ref best, ref runnerUp);
++            }
++
++            if (best == null)
++            {
++                foreach (TextureObservation observation in _textures.Values)
++                {
++                    if (observation.ColorPasses == 0)
++                    {
++                        continue;
++                    }
++
++                    int score =
++                        DimensionScore(observation, presented) +
++                        Math.Min(10, observation.ColorPasses) +
++                        (observation.LastSamplePass > observation.FirstWritePass ? 5 : 0) +
++                        (_depthByColor.ContainsKey(observation.Storage) ? 25 : 0);
++
++                    if (score < 35)
++                    {
++                        continue;
++                    }
++
++                    Candidate candidate = new()
++                    {
++                        Texture = observation,
++                        Score = Math.Min(69, score),
++                        Evidence = "unlinked-present",
++                        LinkedToPresented = false,
++                    };
++                    InsertCandidate(candidate, ref best, ref runnerUp);
++                }
++            }
++
++            ApplyRunnerMargin(best, runnerUp);
++            return best;
++        }
++
++        private Candidate FindDepthCandidate(Candidate scene)
++        {
++            if (scene == null ||
++                !_depthByColor.TryGetValue(
++                    scene.Texture.Storage,
++                    out Dictionary<TextureStorage, int> pairedDepth))
++            {
++                return null;
++            }
++
++            Candidate best = null;
++            Candidate runnerUp = null;
++
++            foreach ((TextureStorage storage, int pairPasses) in pairedDepth)
++            {
++                if (!_textures.TryGetValue(storage, out TextureObservation observation) ||
++                    !observation.Format.IsDepthOrStencil)
++                {
++                    continue;
++                }
++
++                double pairRatio = Math.Min(1d, pairPasses / (double)Math.Max(1, scene.Texture.ColorPasses));
++                bool exactSize = HasExactDimensions(observation, scene.Texture);
++                bool sampledLater = observation.LastSamplePass > observation.FirstWritePass;
++                int score =
++                    25 +
++                    (int)Math.Round(pairRatio * 35d) +
++                    (exactSize ? 20 : SameAspect(observation, scene.Texture) ? 10 : 0) +
++                    (sampledLater ? 5 : 0) +
++                    (pairPasses >= 3 ? 10 : 0);
++                if (!scene.LinkedToPresented)
++                {
++                    score = Math.Min(69, score);
++                }
++
++                Candidate candidate = new()
++                {
++                    Texture = observation,
++                    Score = Math.Min(100, score),
++                    PairPasses = pairPasses,
++                    Evidence =
++                        $"paired-{pairRatio:P0}," +
++                        $"{(exactSize ? "exact-size" : "scaled-size")}," +
++                        $"{(sampledLater ? "read-later" : "not-read-later")}" +
++                        $"{(scene.LinkedToPresented ? string.Empty : ",unlinked-present")}",
++                    LinkedToPresented = scene.LinkedToPresented,
++                };
++                InsertCandidate(candidate, ref best, ref runnerUp);
++            }
++
++            ApplyRunnerMargin(best, runnerUp);
++            return best;
++        }
++
++        private Candidate FindMotionCandidate(Candidate scene)
++        {
++            if (scene == null ||
++                !_mrtByColor.TryGetValue(
++                    scene.Texture.Storage,
++                    out Dictionary<TextureStorage, int> pairedColors))
++            {
++                return null;
++            }
++
++            Candidate best = null;
++            Candidate runnerUp = null;
++
++            foreach ((TextureStorage storage, int pairPasses) in pairedColors)
++            {
++                if (!_textures.TryGetValue(storage, out TextureObservation observation))
++                {
++                    continue;
++                }
++
++                int formatScore = MotionFormatScore(observation.Format);
++                if (formatScore == 0)
++                {
++                    continue;
++                }
++
++                double pairRatio = Math.Min(1d, pairPasses / (double)Math.Max(1, scene.Texture.ColorPasses));
++                bool exactSize = HasExactDimensions(observation, scene.Texture);
++                bool sampledLater = observation.LastSamplePass > observation.FirstWritePass;
++                bool secondarySlot = (observation.ColorSlots & ~1u) != 0;
++                int score =
++                    formatScore +
++                    (int)Math.Round(pairRatio * 30d) +
++                    (exactSize ? 20 : SameAspect(observation, scene.Texture) ? 10 : 0) +
++                    (sampledLater ? 10 : 0) +
++                    (secondarySlot ? 5 : 0) +
++                    (pairPasses >= 3 ? 5 : 0);
++                if (!scene.LinkedToPresented)
++                {
++                    score = Math.Min(69, score);
++                }
++
++                Candidate candidate = new()
++                {
++                    Texture = observation,
++                    Score = Math.Min(100, score),
++                    PairPasses = pairPasses,
++                    Evidence =
++                        $"mrt-paired-{pairRatio:P0}," +
++                        $"{(exactSize ? "exact-size" : "scaled-size")}," +
++                        $"{(sampledLater ? "read-later" : "not-read-later")}," +
++                        $"slots-0x{observation.ColorSlots:x}" +
++                        $"{(scene.LinkedToPresented ? string.Empty : ",unlinked-present")}",
++                    LinkedToPresented = scene.LinkedToPresented,
++                };
++                InsertCandidate(candidate, ref best, ref runnerUp);
++            }
++
++            ApplyRunnerMargin(best, runnerUp);
++            return best;
++        }
++
++        private TextureObservation Observe(TextureView view)
++        {
++            return view?.Storage == null ? null : Observe(view.Storage, view);
++        }
++
++        private TextureObservation Observe(TextureStorage storage)
++        {
++            return storage == null ? null : Observe(storage, null);
++        }
++
++        private TextureObservation Observe(TextureStorage storage, TextureView view)
++        {
++            if (_textures.TryGetValue(storage, out TextureObservation observation))
++            {
++                if (view != null)
++                {
++                    observation.View = view;
++                    observation.Format = view.Info.Format;
++                    observation.Width = view.Width;
++                    observation.Height = view.Height;
++                }
++
++                return observation;
++            }
++
++            if (_textures.Count >= MaxTrackedTextures)
++            {
++                _truncated = true;
++                return null;
++            }
++
++            observation = new TextureObservation
++            {
++                Storage = storage,
++                View = view,
++                Format = view?.Info.Format ?? storage.Info.Format,
++                Width = view?.Width ?? storage.Info.Width,
++                Height = view?.Height ?? storage.Info.Height,
++            };
++            _textures.Add(storage, observation);
++            return observation;
++        }
++
++        private static void IncrementPair(
++            Dictionary<TextureStorage, Dictionary<TextureStorage, int>> pairs,
++            TextureStorage owner,
++            TextureStorage candidate)
++        {
++            if (!pairs.TryGetValue(owner, out Dictionary<TextureStorage, int> candidateCounts))
++            {
++                candidateCounts = new(ReferenceComparer<TextureStorage>.Instance);
++                pairs.Add(owner, candidateCounts);
++            }
++
++            candidateCounts.TryGetValue(candidate, out int count);
++            candidateCounts[candidate] = count + 1;
++        }
++
++        private static void InsertCandidate(
++            Candidate candidate,
++            ref Candidate best,
++            ref Candidate runnerUp)
++        {
++            if (best == null || candidate.Score > best.Score)
++            {
++                runnerUp = best;
++                best = candidate;
++            }
++            else if (runnerUp == null || candidate.Score > runnerUp.Score)
++            {
++                runnerUp = candidate;
++            }
++        }
++
++        private static void ApplyRunnerMargin(Candidate best, Candidate runnerUp)
++        {
++            if (best == null)
++            {
++                return;
++            }
++
++            best.RunnerMargin = runnerUp == null ? 100 : best.Score - runnerUp.Score;
++            if (best.RunnerMargin < 10)
++            {
++                best.Score = Math.Max(0, best.Score - 15);
++                best.Evidence += ",ambiguous";
++            }
++        }
++
++        private static int DimensionScore(TextureObservation candidate, TextureObservation reference)
++        {
++            if (HasExactDimensions(candidate, reference))
++            {
++                return 20;
++            }
++
++            return SameAspect(candidate, reference) ? 10 : 0;
++        }
++
++        private static bool HasExactDimensions(TextureObservation first, TextureObservation second)
++        {
++            return first.Width == second.Width && first.Height == second.Height;
++        }
++
++        private static bool SameAspect(TextureObservation first, TextureObservation second)
++        {
++            if (first.Width <= 0 || first.Height <= 0 || second.Width <= 0 || second.Height <= 0)
++            {
++                return false;
++            }
++
++            double firstAspect = first.Width / (double)first.Height;
++            double secondAspect = second.Width / (double)second.Height;
++            return Math.Abs(firstAspect - secondAspect) <= secondAspect * 0.01d;
++        }
++
++        private static int MotionFormatScore(Format format)
++        {
++            return format switch
++            {
++                Format.R16G16Float or Format.R32G32Float => 35,
++                Format.R16G16Snorm or Format.R16G16Unorm => 24,
++                Format.R16G16B16A16Float or Format.R32G32B32A32Float => 16,
++                _ => 0,
++            };
++        }
++
++        private static int UpdateStability(
++            ref string previousSignature,
++            ref int sightings,
++            ref int missedFrames,
++            string currentSignature)
++        {
++            if (string.IsNullOrEmpty(currentSignature))
++            {
++                missedFrames++;
++                if (missedFrames > 120)
++                {
++                    previousSignature = string.Empty;
++                    sightings = 0;
++                    missedFrames = 0;
++                }
++
++                return sightings;
++            }
++
++            if (string.Equals(previousSignature, currentSignature, StringComparison.Ordinal))
++            {
++                sightings++;
++            }
++            else
++            {
++                previousSignature = currentSignature;
++                sightings = 1;
++            }
++
++            missedFrames = 0;
++            return sightings;
++        }
++
++        private static string Classify(Candidate candidate, int sightings)
++        {
++            if (candidate == null || candidate.Score < 45)
++            {
++                return "unresolved";
++            }
++
++            if (candidate.Score >= 85 && sightings >= 90 && candidate.RunnerMargin >= 10)
++            {
++                return "stable";
++            }
++
++            if (candidate.Score >= 70 && sightings >= 30 && candidate.RunnerMargin >= 8)
++            {
++                return "likely";
++            }
++
++            return "candidate";
++        }
++
++        private static string DescribeCandidate(
++            Candidate candidate,
++            string label,
++            int sightings)
++        {
++            if (candidate == null || label == "unresolved")
++            {
++                return "unresolved";
++            }
++
++            return
++                $"{label}#{TextureId(candidate.Texture)} " +
++                $"{candidate.Texture.Format} {candidate.Texture.Width}x{candidate.Texture.Height} " +
++                $"{candidate.Score}% seen={sightings}f {candidate.Evidence}";
++        }
++
++        private static string CandidateSignature(Candidate candidate)
++        {
++            if (candidate == null)
++            {
++                return string.Empty;
++            }
++
++            TextureObservation texture = candidate.Texture;
++            return $"{texture.Format}:{texture.Width}x{texture.Height}:slots{texture.ColorSlots:x}";
++        }
++
++        private static string TextureId(TextureObservation observation)
++        {
++            return RuntimeHelpers.GetHashCode(observation.Storage).ToString("x8");
++        }
++
++        private void ResetFrame()
++        {
++            _textures.Clear();
++            _inputsByOutput.Clear();
++            _depthByColor.Clear();
++            _mrtByColor.Clear();
++            _readScratch.Clear();
++            _colorScratch.Clear();
++            _dependencyDistances.Clear();
++            _dependencyQueue.Clear();
++            _passCount = 0;
++            _truncated = false;
++        }
++    }
++}
+diff --git a/src/Ryujinx.Graphics.Vulkan/MetalFxPresentation.cs b/src/Ryujinx.Graphics.Vulkan/MetalFxPresentation.cs
+new file mode 100644
+index 0000000..af55d1f
+--- /dev/null
++++ b/src/Ryujinx.Graphics.Vulkan/MetalFxPresentation.cs
+@@ -0,0 +1,252 @@
++using System;
++using System.Threading;
++
++namespace Ryujinx.Graphics.Vulkan
++{
++    [Flags]
++    public enum MetalFxFrameFlags : ulong
++    {
++        None = 0,
++        Color = 1UL << 0,
++        Depth = 1UL << 1,
++        Motion = 1UL << 2,
++        Camera = 1UL << 3,
++        Jitter = 1UL << 4,
++        Discontinuity = 1UL << 5,
++        DepthReversed = 1UL << 6,
++    }
++
++    public enum MetalFxTextureFormat : uint
++    {
++        Unknown = 0,
++        Bgra8Unorm = 1,
++        Bgra8UnormSrgb = 2,
++        R32Float = 3,
++        Rg16Float = 4,
++    }
++
++    /// <summary>
++    /// A renderer-owned frame whose Metal object pointers are borrowed and
++    /// must first be consumed during the synchronous presentation callback.
++    /// The native presenter may retain active swapchain objects for the
++    /// renderer session, but must release them before Vulkan teardown.
++    /// Motion is current-to-previous displacement in pixels after applying
++    /// MotionVectorScaleX/Y. Depth is normalized device depth.
++    /// </summary>
++    public readonly struct MetalFxFrame
++    {
++        public ulong FrameId { get; }
++        public MetalFxFrameFlags Flags { get; }
++        public nint MetalCommandQueue { get; }
++        public nint ColorTexture { get; }
++        public nint DepthTexture { get; }
++        public nint MotionTexture { get; }
++        public int ColorWidth { get; }
++        public int ColorHeight { get; }
++        public int DepthWidth { get; }
++        public int DepthHeight { get; }
++        public int MotionWidth { get; }
++        public int MotionHeight { get; }
++        public MetalFxTextureFormat ColorFormat { get; }
++        public MetalFxTextureFormat DepthFormat { get; }
++        public MetalFxTextureFormat MotionFormat { get; }
++        public float MotionVectorScaleX { get; }
++        public float MotionVectorScaleY { get; }
++        public float JitterOffsetX { get; }
++        public float JitterOffsetY { get; }
++        public float NearPlane { get; }
++        public float FarPlane { get; }
++        public float FieldOfViewDegrees { get; }
++        public float AspectRatio { get; }
++        public float DeltaTimeSeconds { get; }
++        public ulong PresentationTimestampNanoseconds { get; }
++
++        public MetalFxFrame(
++            ulong frameId,
++            MetalFxFrameFlags flags,
++            nint metalCommandQueue,
++            nint colorTexture,
++            nint depthTexture,
++            nint motionTexture,
++            int colorWidth,
++            int colorHeight,
++            int depthWidth,
++            int depthHeight,
++            int motionWidth,
++            int motionHeight,
++            MetalFxTextureFormat colorFormat,
++            MetalFxTextureFormat depthFormat,
++            MetalFxTextureFormat motionFormat,
++            float motionVectorScaleX,
++            float motionVectorScaleY,
++            float jitterOffsetX,
++            float jitterOffsetY,
++            float nearPlane,
++            float farPlane,
++            float fieldOfViewDegrees,
++            float aspectRatio,
++            float deltaTimeSeconds,
++            ulong presentationTimestampNanoseconds)
++        {
++            FrameId = frameId;
++            Flags = flags;
++            MetalCommandQueue = metalCommandQueue;
++            ColorTexture = colorTexture;
++            DepthTexture = depthTexture;
++            MotionTexture = motionTexture;
++            ColorWidth = colorWidth;
++            ColorHeight = colorHeight;
++            DepthWidth = depthWidth;
++            DepthHeight = depthHeight;
++            MotionWidth = motionWidth;
++            MotionHeight = motionHeight;
++            ColorFormat = colorFormat;
++            DepthFormat = depthFormat;
++            MotionFormat = motionFormat;
++            MotionVectorScaleX = motionVectorScaleX;
++            MotionVectorScaleY = motionVectorScaleY;
++            JitterOffsetX = jitterOffsetX;
++            JitterOffsetY = jitterOffsetY;
++            NearPlane = nearPlane;
++            FarPlane = farPlane;
++            FieldOfViewDegrees = fieldOfViewDegrees;
++            AspectRatio = aspectRatio;
++            DeltaTimeSeconds = deltaTimeSeconds;
++            PresentationTimestampNanoseconds = presentationTimestampNanoseconds;
++        }
++    }
++
++    public delegate bool MetalFxPresentFrame(in MetalFxFrame frame);
++    public delegate void MetalFxReportAttachmentLabels(string message);
++    public delegate void MetalFxReportProviderReadiness(in MetalFxProviderReadiness readiness);
++
++    /// <summary>
++    /// Stable, pointer-free handoff from attachment discovery to the future
++    /// renderer provider. A candidate becoming ready does not make its Vulkan
++    /// image exportable and therefore never unlocks Temporal by itself.
++    /// </summary>
++    public readonly struct MetalFxProviderReadiness
++    {
++        public ulong FrameId { get; }
++        public int Generation { get; }
++        public bool SceneReady { get; }
++        public bool DepthReady { get; }
++        public bool MotionReady { get; }
++        public bool RawExportReady { get; }
++        public bool CanonicalExportReady { get; }
++        public bool SceneCut { get; }
++        public string SceneLabel { get; }
++        public string DepthLabel { get; }
++        public string MotionLabel { get; }
++        public string DepthFormat { get; }
++        public string MotionFormat { get; }
++        public int Width { get; }
++        public int Height { get; }
++
++        public MetalFxProviderReadiness(
++            ulong frameId,
++            int generation,
++            bool sceneReady,
++            bool depthReady,
++            bool motionReady,
++            bool rawExportReady,
++            bool canonicalExportReady,
++            bool sceneCut,
++            string sceneLabel,
++            string depthLabel,
++            string motionLabel,
++            string depthFormat,
++            string motionFormat,
++            int width,
++            int height)
++        {
++            FrameId = frameId;
++            Generation = generation;
++            SceneReady = sceneReady;
++            DepthReady = depthReady;
++            MotionReady = motionReady;
++            RawExportReady = rawExportReady;
++            CanonicalExportReady = canonicalExportReady;
++            SceneCut = sceneCut;
++            SceneLabel = sceneLabel;
++            DepthLabel = depthLabel;
++            MotionLabel = motionLabel;
++            DepthFormat = depthFormat;
++            MotionFormat = motionFormat;
++            Width = width;
++            Height = height;
++        }
++    }
++
++    public static class MetalFxPresentation
++    {
++        private static readonly object _lock = new();
++        private static MetalFxPresentFrame _presentFrame;
++        private static MetalFxReportAttachmentLabels _reportAttachmentLabels;
++        private static MetalFxReportProviderReadiness _reportProviderReadiness;
++        private static int _attachmentDiscoveryEnabled;
++
++        public static void Configure(
++            MetalFxPresentFrame presentFrame,
++            MetalFxReportAttachmentLabels reportAttachmentLabels = null,
++            MetalFxReportProviderReadiness reportProviderReadiness = null)
++        {
++            lock (_lock)
++            {
++                _presentFrame = presentFrame;
++                _reportAttachmentLabels = reportAttachmentLabels;
++                _reportProviderReadiness = reportProviderReadiness;
++                Volatile.Write(
++                    ref _attachmentDiscoveryEnabled,
++                    reportAttachmentLabels == null && reportProviderReadiness == null ? 0 : 1);
++            }
++        }
++
++        public static void Clear()
++        {
++            lock (_lock)
++            {
++                _presentFrame = null;
++                _reportAttachmentLabels = null;
++                _reportProviderReadiness = null;
++                Volatile.Write(ref _attachmentDiscoveryEnabled, 0);
++            }
++        }
++
++        internal static bool IsAttachmentDiscoveryEnabled =>
++            Volatile.Read(ref _attachmentDiscoveryEnabled) != 0;
++
++        internal static void ReportAttachmentLabels(string message)
++        {
++            MetalFxReportAttachmentLabels reportAttachmentLabels;
++            lock (_lock)
++            {
++                reportAttachmentLabels = _reportAttachmentLabels;
++            }
++
++            reportAttachmentLabels?.Invoke(message);
++        }
++
++        internal static void ReportProviderReadiness(in MetalFxProviderReadiness readiness)
++        {
++            MetalFxReportProviderReadiness reportProviderReadiness;
++            lock (_lock)
++            {
++                reportProviderReadiness = _reportProviderReadiness;
++            }
++
++            reportProviderReadiness?.Invoke(in readiness);
++        }
++
++        internal static bool TryPresent(in MetalFxFrame frame)
++        {
++            MetalFxPresentFrame presentFrame;
++            lock (_lock)
++            {
++                presentFrame = _presentFrame;
++            }
++
++            return presentFrame?.Invoke(in frame) == true;
++        }
++    }
++}

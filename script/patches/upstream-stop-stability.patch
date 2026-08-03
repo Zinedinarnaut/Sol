@@ -1,0 +1,133 @@
+diff --git a/src/Ryujinx.Common/Logging/Logger.cs b/src/Ryujinx.Common/Logging/Logger.cs
+index 788d2ab..6bfa9b1 100644
+--- a/src/Ryujinx.Common/Logging/Logger.cs
++++ b/src/Ryujinx.Common/Logging/Logger.cs
+@@ -162,6 +162,7 @@ namespace Ryujinx.Common.Logging
+         {
+             if (_logTargets.Any(t => t.Name == target.Name))
+             {
++                target.Dispose();
+                 return;
+             }
+ 
+diff --git a/src/Ryujinx.Graphics.GAL/Multithreading/ThreadedRenderer.cs b/src/Ryujinx.Graphics.GAL/Multithreading/ThreadedRenderer.cs
+index 66ac31a..e801b7f 100644
+--- a/src/Ryujinx.Graphics.GAL/Multithreading/ThreadedRenderer.cs
++++ b/src/Ryujinx.Graphics.GAL/Multithreading/ThreadedRenderer.cs
+@@ -195,11 +195,12 @@ namespace Ryujinx.Graphics.GAL.Multithreading
+         {
+             // The reference table is sized so that it will never overflow, so long as the references are taken after the command is allocated.
+ 
+-            int index = _refProducerPtr;
++            int index = Interlocked.Increment(ref _refProducerPtr) - 1;
++            index %= _refQueue.Length;
+ 
+             _refQueue[index] = obj;
+ 
+-            _refProducerPtr = (_refProducerPtr + 1) % _refQueue.Length;
++            _refProducerPtr %= _refQueue.Length;
+ 
+             return index;
+         }
+@@ -531,10 +532,15 @@ namespace Ryujinx.Graphics.GAL.Multithreading
+             _running = false;
+             _galWorkAvailable.Set();
+ 
+-            if (_gpuThread != null && _gpuThread.IsAlive)
++            if (_gpuThread is { IsAlive: true })
+             {
+                 _gpuThread.Join();
+             }
+ 
++            if (_backendThread is { IsAlive: true })
++            {
++                _backendThread.Join();
++            }
++
+             // Dispose the renderer.
+             _baseRenderer.Dispose();
+diff --git a/src/Ryujinx.HLE/HOS/Horizon.cs b/src/Ryujinx.HLE/HOS/Horizon.cs
+index bcce72d..5ad4138 100644
+--- a/src/Ryujinx.HLE/HOS/Horizon.cs
++++ b/src/Ryujinx.HLE/HOS/Horizon.cs
+@@ -482,14 +482,18 @@ namespace Ryujinx.HLE.HOS
+ 
+                 terminationThread.Initialize(0, 0, 0, 3, 0, terminationProcess, ThreadType.Kernel, () =>
+                 {
++                    List<KProcess> terminatedProcesses = new();
++                    List<Thread> guestHostThreads = new();
++
+                     // Force all threads to exit.
+                     lock (KernelContext.Processes)
+                     {
+                         // Terminate application.
+                         foreach (KProcess process in KernelContext.Processes.Values.Where(x => x.IsApplication))
+                         {
++                            guestHostThreads.AddRange(process.GetGuestHostThreadsSnapshot());
+                             process.Terminate();
+-                            process.DecrementReferenceCount();
++                            terminatedProcesses.Add(process);
+                         }
+ 
+                         // The application existed, now surface flinger can exit too.
+@@ -499,13 +503,37 @@ namespace Ryujinx.HLE.HOS
+                         // otherwise the application will receive errors due to service termination).
+                         foreach (KProcess process in KernelContext.Processes.Values.Where(x => !x.IsApplication))
+                         {
++                            guestHostThreads.AddRange(process.GetGuestHostThreadsSnapshot());
+                             process.Terminate();
+-                            process.DecrementReferenceCount();
++                            terminatedProcesses.Add(process);
+                         }
+ 
+                         KernelContext.Processes.Clear();
+                     }
+ 
++                    // Keep each process context alive until its guest host
++                    // threads have completely unwound from generated code.
++                    // Releasing the final process reference earlier can unmap
++                    // the JIT cache while a host thread is still returning.
++                    foreach (Thread hostThread in guestHostThreads)
++                    {
++                        if (ReferenceEquals(hostThread, Thread.CurrentThread))
++                        {
++                            continue;
++                        }
++
++                        ThreadState state = hostThread.ThreadState;
++                        if ((state & (ThreadState.Unstarted | ThreadState.Stopped)) == 0)
++                        {
++                            hostThread.Join();
++                        }
++                    }
++
++                    foreach (KProcess process in terminatedProcesses)
++                    {
++                        process.DecrementReferenceCount();
++                    }
++
+                     // Exit ourself now!
+                     KernelStatic.GetCurrentThread().Exit();
+                 });
+diff --git a/src/Ryujinx.HLE/HOS/Kernel/Process/KProcess.cs b/src/Ryujinx.HLE/HOS/Kernel/Process/KProcess.cs
+index 20c8b11..df00330 100644
+--- a/src/Ryujinx.HLE/HOS/Kernel/Process/KProcess.cs
++++ b/src/Ryujinx.HLE/HOS/Kernel/Process/KProcess.cs
+@@ -881,6 +881,17 @@ namespace Ryujinx.HLE.HOS.Kernel.Process
+             }
+         }
+ 
++        internal Thread[] GetGuestHostThreadsSnapshot()
++        {
++            lock (_threadingLock)
++            {
++                return _threads
++                    .Where(thread => thread.IsSchedulable)
++                    .Select(thread => thread.HostThread)
++                    .ToArray();
++            }
++        }
++
+         public bool IsCpuCoreAllowed(int core)
+         {
+             return (Capabilities.AllowedCpuCoresMask & (1UL << core)) != 0;

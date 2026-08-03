@@ -1,0 +1,34 @@
+.DS_Store
+.env
+.env.*
+.build/
+.swiftpm/
+.codex/
+.tools/
+Vendor/Ryubing/
+NativeHost/artifacts/
+NativeHost/**/bin/
+NativeHost/**/obj/
+dist/
+DerivedData/
+*.xcarchive
+*.dSYM/
+*.xcuserstate
+**/xcuserdata/
+
+# Signing material and local system data never belong in source control.
+*.cer
+*.p12
+*.provisionprofile
+*.mobileprovision
+prod.keys
+title.keys
+Config.json
+
+# User-provided content.
+*.nca
+*.nro
+*.nsp
+*.nsz
+*.tik
+*.xci

@@ -1,0 +1,239 @@
+name: Sol
+options:
+  bundleIdPrefix: com.solemu
+  deploymentTarget:
+    macOS: "15.0"
+settings:
+  base:
+    ARCHS: arm64
+    SWIFT_VERSION: "5.9"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+
+schemes:
+  Sol:
+    shared: true
+    build:
+      targets:
+        Sol: all
+    run:
+      config: Debug
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release
+  SolWidgets:
+    shared: true
+    build:
+      targets:
+        SolWidgets: all
+    run:
+      config: Debug
+    profile:
+      config: Release
+
+targets:
+  SolDLSM:
+    type: framework
+    platform: macOS
+    sources:
+      - Sources/SolDLSM
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: "com.solemu.dlsm"
+        DEFINES_MODULE: YES
+        GENERATE_INFOPLIST_FILE: YES
+        SKIP_INSTALL: YES
+        CODE_SIGN_STYLE: Automatic
+
+  Sol:
+    type: application
+    platform: macOS
+    sources:
+      - Sources/Sol
+    postBuildScripts:
+      - script: '"$SRCROOT/script/embed_sol_engine_runtime.sh"'
+        name: Embed Sol Engine Runtime
+        shell: /bin/bash
+        basedOnDependencyAnalysis: false
+        showEnvVars: false
+    entitlements:
+      path: Sol.entitlements
+      properties:
+        com.apple.developer.applesignin:
+          - Default
+        com.apple.developer.usernotifications.time-sensitive: true
+        com.apple.security.application-groups:
+          - group.com.solemu.app
+        com.apple.developer.ubiquity-kvstore-identifier: "$(TeamIdentifierPrefix)com.solemu.app"
+    dependencies:
+      - target: SolDLSM
+        embed: true
+      - target: SolWidgets
+        embed: true
+      - target: SolQuickLook
+        embed: true
+      - target: SolShare
+        embed: true
+    info:
+      path: Sol-Info.plist
+      properties:
+        LSMinimumSystemVersion: "15.0"
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        NSHighResolutionCapable: true
+        NSPrefersDisplaySafeAreaCompatibilityMode: false
+        NSLocalNetworkUsageDescription: "Sol uses your local network to find and connect to multiplayer sessions."
+        LSApplicationCategoryType: "public.app-category.games"
+        GCSupportsGameMode: true
+        LSSupportsGameMode: true
+        CFBundleURLTypes:
+          - CFBundleURLName: com.solemu.app
+            CFBundleURLSchemes:
+              - sol
+        UTTypeDeclarations:
+          - UTTypeIdentifier: com.solemu.app.nsp
+            UTTypeDescription: Sol Game Package
+            UTTypeConformsTo:
+              - public.data
+            UTTypeTagSpecification:
+              public.filename-extension:
+                - nsp
+          - UTTypeIdentifier: com.solemu.app.xci
+            UTTypeDescription: Sol Game Image
+            UTTypeConformsTo:
+              - public.data
+            UTTypeTagSpecification:
+              public.filename-extension:
+                - xci
+          - UTTypeIdentifier: com.solemu.app.nro
+            UTTypeDescription: Sol Executable
+            UTTypeConformsTo:
+              - public.data
+            UTTypeTagSpecification:
+              public.filename-extension:
+                - nro
+          - UTTypeIdentifier: com.solemu.app.nca
+            UTTypeDescription: Sol Content Archive
+            UTTypeConformsTo:
+              - public.data
+            UTTypeTagSpecification:
+              public.filename-extension:
+                - nca
+          - UTTypeIdentifier: com.solemu.app.nsz
+            UTTypeDescription: Sol Compressed Package
+            UTTypeConformsTo:
+              - public.data
+            UTTypeTagSpecification:
+              public.filename-extension:
+                - nsz
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: Sol Game
+            LSHandlerRank: Owner
+            LSItemContentTypes:
+              - com.solemu.app.nsp
+              - com.solemu.app.xci
+              - com.solemu.app.nro
+              - com.solemu.app.nca
+              - com.solemu.app.nsz
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: "com.solemu.app"
+        CODE_SIGN_STYLE: Automatic
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: ""
+
+  SolWidgets:
+    type: app-extension
+    platform: macOS
+    sources:
+      - Sources/SolWidgets
+      - Sources/Sol/Shared/SharedLauncherData.swift
+    entitlements:
+      path: SolWidgets.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.application-groups:
+          - group.com.solemu.app
+    info:
+      path: SolWidgets-Info.plist
+      properties:
+        LSMinimumSystemVersion: "15.0"
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        NSExtension:
+          NSExtensionPointIdentifier: "com.apple.widgetkit-extension"
+          NSExtensionPrincipalClass: "$(PRODUCT_MODULE_NAME).SolWidgets"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: "com.solemu.app.widgets"
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_ALLOW_ENTITLEMENTS_MODIFICATION: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: ""
+
+  SolQuickLook:
+    type: app-extension
+    platform: macOS
+    sources:
+      - Sources/SolQuickLook
+      - Sources/Sol/Shared/SharedLauncherData.swift
+    entitlements:
+      path: SolQuickLook.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.application-groups:
+          - group.com.solemu.app
+    info:
+      path: SolQuickLook-Info.plist
+      properties:
+        LSMinimumSystemVersion: "15.0"
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        NSExtension:
+          NSExtensionPointIdentifier: "com.apple.quicklook.preview"
+          NSExtensionPrincipalClass: "$(PRODUCT_MODULE_NAME).PreviewViewController"
+          NSExtensionAttributes:
+            QLSupportedContentTypes:
+              - com.solemu.app.nsp
+              - com.solemu.app.xci
+              - com.solemu.app.nro
+              - com.solemu.app.nca
+              - com.solemu.app.nsz
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: "com.solemu.app.quicklook"
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_ALLOW_ENTITLEMENTS_MODIFICATION: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: ""
+
+  SolShare:
+    type: app-extension
+    platform: macOS
+    sources:
+      - Sources/SolShare
+      - Sources/Sol/Shared/SharedLauncherData.swift
+    entitlements:
+      path: SolShare.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.application-groups:
+          - group.com.solemu.app
+    info:
+      path: SolShare-Info.plist
+      properties:
+        LSMinimumSystemVersion: "15.0"
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        NSExtension:
+          NSExtensionPointIdentifier: "com.apple.share-services"
+          NSExtensionPrincipalClass: "$(PRODUCT_MODULE_NAME).ShareViewController"
+          NSExtensionAttributes:
+            NSExtensionActivationRule: 'SUBQUERY (extensionItems, $item, SUBQUERY ($item.attachments, $attachment, ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "public.data").@count >= 1).@count >= 1'
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: "com.solemu.app.share"
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_ALLOW_ENTITLEMENTS_MODIFICATION: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: ""

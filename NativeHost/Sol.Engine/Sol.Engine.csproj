@@ -1,0 +1,58 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>preview</LangVersion>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>Sol.Engine</AssemblyName>
+    <RootNamespace>Sol.Engine</RootNamespace>
+    <Product>Sol Engine</Product>
+    <Title>Sol Engine</Title>
+    <Description>Native Apple Silicon emulation engine for Sol.</Description>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <RuntimeIdentifier>osx-arm64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <PublishTrimmed>false</PublishTrimmed>
+    <Version>0.1.0</Version>
+    <InformationalVersion>0.1.0-sol+a82350bb774f70fcbd41c9987bf67a3775409963</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <RyubingRoot>$(MSBuildThisFileDirectory)..\..\Vendor\Ryubing</RyubingRoot>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="$(RyubingRoot)\src\Ryujinx\Headless\**\*.cs" LinkBase="Upstream\Headless" />
+    <Compile Include="$(RyubingRoot)\src\Ryujinx\Systems\Configuration\**\*.cs" LinkBase="Upstream\Configuration" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommandLineParser" Version="2.9.1" />
+    <PackageReference Include="Gommon" Version="2.8.1.2" />
+    <PackageReference Include="Humanizer" Version="3.0.10" />
+    <PackageReference Include="OpenTK.Core" Version="4.9.4" />
+    <PackageReference Include="Ryujinx.Graphics.Nvdec.Dependencies.AllArch" Version="6.1.4-build6" />
+    <PackageReference Include="Ryujinx.Graphics.Vulkan.MoltenVK" Version="1.4.2-ryujinx.5" />
+    <PackageReference Include="Silk.NET.Vulkan" Version="2.23.0" />
+    <PackageReference Include="Silk.NET.Vulkan.Extensions.EXT" Version="2.23.0" />
+    <PackageReference Include="Silk.NET.Vulkan.Extensions.KHR" Version="2.23.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="$(RyubingRoot)\src\ARMeilleure\ARMeilleure.csproj" />
+    <ProjectReference Include="$(RyubingRoot)\src\Ryujinx.Audio.Backends.SDL3\Ryujinx.Audio.Backends.SDL3.csproj" />
+    <ProjectReference Include="$(RyubingRoot)\src\Ryujinx.Common\Ryujinx.Common.csproj" />
+    <ProjectReference Include="$(RyubingRoot)\src\Ryujinx.Graphics.Gpu\Ryujinx.Graphics.Gpu.csproj" />
+    <ProjectReference Include="$(RyubingRoot)\src\Ryujinx.Graphics.OpenGL\Ryujinx.Graphics.OpenGL.csproj" />
+    <ProjectReference Include="$(RyubingRoot)\src\Ryujinx.Graphics.Vulkan\Ryujinx.Graphics.Vulkan.csproj" />
+    <ProjectReference Include="$(RyubingRoot)\src\Ryujinx.HLE\Ryujinx.HLE.csproj" />
+    <ProjectReference Include="$(RyubingRoot)\src\Ryujinx.Input\Ryujinx.Input.csproj" />
+    <ProjectReference Include="$(RyubingRoot)\src\Ryujinx.Input.SDL3\Ryujinx.Input.SDL3.csproj" />
+    <ProjectReference Include="$(RyubingRoot)\src\Ryujinx.SDL3.Common\Ryujinx.SDL3.Common.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="$(RyubingRoot)\LICENSE.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <TargetPath>LICENSE.txt</TargetPath>
+    </Content>
+  </ItemGroup>
+</Project>

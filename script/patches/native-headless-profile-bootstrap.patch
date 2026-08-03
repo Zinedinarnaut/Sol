@@ -1,0 +1,186 @@
+diff --git a/src/Ryujinx/Headless/HeadlessRyujinx.cs b/src/Ryujinx/Headless/HeadlessRyujinx.cs
+index a6ff5da..ca64ec4 100644
+--- a/src/Ryujinx/Headless/HeadlessRyujinx.cs
++++ b/src/Ryujinx/Headless/HeadlessRyujinx.cs
+@@ -55,9 +55,10 @@ namespace Ryujinx.Headless
+             // Make process DPI aware for proper window sizing on high-res screens.
+             ForceDpiAware.Windows();
+ 
+-            Console.Title = $"HeadlessRyujinx Console {Program.Version}";
++            Console.Title = $"Sol Engine Console {Program.Version}";
+ 
+-            if (OperatingSystem.IsMacOS() || OperatingSystem.IsLinux())
++            if ((OperatingSystem.IsMacOS() || OperatingSystem.IsLinux()) &&
++                SDL3Driver.MainThreadDispatcher == null)
+             {
+                 AutoResetEvent invoked = new(false);
+ 
+@@ -141,7 +142,12 @@ namespace Ryujinx.Headless
+ 
+         static void Load(string[] originalArgs, Options option)
+         {
++            NativeSessionProtocol.PublishLaunchProgress(
++                "loading-configuration",
++                "Loading system configuration");
+             Initialize();
++            AppDataManager.Initialize(option.BaseDataDir);
++            ReloadConfig();
+ 
+             bool useLastUsedProfile = false;
+ 
+@@ -150,10 +156,10 @@ namespace Ryujinx.Headless
+                 option.InheritMainConfig(originalArgs, ConfigurationState.Instance, out useLastUsedProfile);
+             }
+ 
+-            AppDataManager.Initialize(option.BaseDataDir);
+-
+-            if (useLastUsedProfile && AccountSaveDataManager.GetLastUsedUser().TryGet(out UserProfile profile))
+-                option.UserProfile = profile.Name;
++            if (useLastUsedProfile)
++            {
++                option.UserProfile = NativeProfileBridge.GetDefaultProfileName();
++            }
+ 
+             // Check if keys exists.
+             if (!File.Exists(Path.Combine(AppDataManager.KeysDirPath, "prod.keys")))
+@@ -164,24 +170,42 @@ namespace Ryujinx.Headless
+                 }
+             }
+ 
+-            ReloadConfig();
+-
+             if (!option.DisableMainInputConfig)
+                 option.InheritMainConfigInput(originalArgs, ConfigurationState.Instance);
+ 
+-            _virtualFileSystem = VirtualFileSystem.CreateInstance();
+-            _libHacHorizonManager = new LibHacHorizonManager();
++            // These services mirror the desktop frontend's process-wide
++            // topology. The standalone headless app only launches once, but
++            // the embedded macOS host can stop one title and launch another
++            // without terminating.
++            if (_virtualFileSystem == null)
++            {
++                NativeSessionProtocol.PublishLaunchProgress(
++                    "starting-services",
++                    "Starting system services");
++                _virtualFileSystem = VirtualFileSystem.CreateInstance();
++                _libHacHorizonManager = new LibHacHorizonManager();
++                _contentManager = new ContentManager(_virtualFileSystem);
++
++                _libHacHorizonManager.InitializeFsServer(_virtualFileSystem);
++                _libHacHorizonManager.InitializeArpServer();
++                _libHacHorizonManager.InitializeBcatServer();
++                _libHacHorizonManager.InitializeSystemClients();
++            }
+ 
+-            _libHacHorizonManager.InitializeFsServer(_virtualFileSystem);
+-            _libHacHorizonManager.InitializeArpServer();
+-            _libHacHorizonManager.InitializeBcatServer();
+-            _libHacHorizonManager.InitializeSystemClients();
++            // Switch construction starts HLE service threads immediately.
++            // Refresh the shared registry before those threads can query it.
++            NativeSessionProtocol.PublishLaunchProgress(
++                "reading-content",
++                "Reading installed firmware and content");
++            _contentManager.LoadEntries();
+ 
+-            _contentManager = new ContentManager(_virtualFileSystem);
+             _accountManager = new AccountManager(_libHacHorizonManager.RyujinxClient, option.UserProfile);
+             _userChannelPersistence = new UserChannelPersistence();
+ 
+             _inputManager = new InputManager(new SDL3KeyboardDriver(), new SDL3GamepadDriver());
++            NativeSessionProtocol.PublishLaunchProgress(
++                "configuring-input",
++                "Configuring controllers and input");
+ 
+             GraphicsConfig.EnableShaderCache = !option.DisableShaderCache;
+ 
+@@ -226,7 +250,7 @@ namespace Ryujinx.Headless
+                 return;
+             }
+ 
+-            _inputConfiguration ??= [];
++            _inputConfiguration = [];
+             _enableKeyboard = option.EnableKeyboard;
+             _enableMouse = option.EnableMouse;
+ 
+@@ -295,6 +319,9 @@ namespace Ryujinx.Headless
+ 
+             while (true)
+             {
++                NativeSessionProtocol.PublishLaunchProgress(
++                    "loading-title",
++                    "Loading game content");
+                 LoadApplication(option);
+ 
+                 if (_userChannelPersistence.PreviousIndex == -1 || !_userChannelPersistence.ShouldRestart)
+@@ -352,6 +379,24 @@ namespace Ryujinx.Headless
+             };
+ 
+             Logger.Info?.Print(LogClass.Application, $"{label} : {current}/{total}");
++            string stage = state is LoadState
++                ? "translation-cache"
++                : "shader-cache";
++            string message = state switch
++            {
++                LoadState.Loading => "Loading translation cache",
++                LoadState.Loaded => "Translation cache ready",
++                ShaderCacheState.Start => "Preparing shader cache",
++                ShaderCacheState.Loading => "Compiling cached shaders",
++                ShaderCacheState.Packaging => "Saving shader cache",
++                ShaderCacheState.Loaded => "Shader cache ready",
++                _ => $"{label} {state}",
++            };
++            NativeSessionProtocol.PublishLaunchProgress(
++                stage,
++                message,
++                current,
++                total);
+         }
+ 
+         private static WindowBase CreateWindow(Options options)
+@@ -378,6 +423,8 @@ namespace Ryujinx.Headless
+ 
+             _emulationContext.Dispose();
+             _window.Dispose();
++            _emulationContext = null;
++            _window = null;
+ 
+             if (OperatingSystem.IsWindows())
+             {
+@@ -392,8 +439,14 @@ namespace Ryujinx.Headless
+ 
+             Logger.RestartTime();
+ 
++            NativeSessionProtocol.PublishLaunchProgress(
++                "starting-metal",
++                "Starting the Metal renderer");
+             WindowBase window = CreateWindow(options);
+-            IRenderer renderer = CreateRenderer(options, window);
++
++            IRenderer renderer = NativeEmbeddedEntrypoint.IsEmbedded
++                ? NativeEmbeddedEntrypoint.InvokeOnMainThread(() => CreateRenderer(options, window))
++                : CreateRenderer(options, window);
+ 
+             _window = window;
+ 
+@@ -406,6 +459,9 @@ namespace Ryujinx.Headless
+             _window.ScalingFilter = options.ScalingFilter;
+             _window.ScalingFilterLevel = options.ScalingFilterLevel;
+ 
++            NativeSessionProtocol.PublishLaunchProgress(
++                "starting-system",
++                "Creating the game system");
+             _emulationContext = InitializeEmulationContext(window, renderer, options);
+ 
+             SystemVersion firmwareVersion = _contentManager.GetCurrentFirmwareVersion();
+@@ -515,6 +571,9 @@ namespace Ryujinx.Headless
+             }
+ 
+             SetupProgressHandler();
++            NativeSessionProtocol.PublishLaunchProgress(
++                "waiting-for-frame",
++                "Waiting for the first Metal frame");
+             ExecutionEntrypoint();
+ 
+             return true;

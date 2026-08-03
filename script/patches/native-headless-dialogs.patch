@@ -1,0 +1,131 @@
+diff --git a/src/Ryujinx/Headless/Windows/WindowBase.cs b/src/Ryujinx/Headless/Windows/WindowBase.cs
+index 49b2a38..c4a5f67 100644
+--- a/src/Ryujinx/Headless/Windows/WindowBase.cs
++++ b/src/Ryujinx/Headless/Windows/WindowBase.cs
+@@ -22,6 +22,7 @@ using System.Collections.Concurrent;
+ using System.Collections.Generic;
+ using System.Diagnostics;
+ using System.IO;
++using System.Linq;
+ using System.Threading;
+ using SDL;
+ using static SDL.SDL3;
+@@ -467,30 +468,43 @@ namespace Ryujinx.Headless
+ 
+         public bool DisplayInputDialog(SoftwareKeyboardUIArgs args, out string userText)
+         {
+-            // SDL3 doesn't support input dialogs
+-            userText = "Ryujinx";
+-
+-            return true;
++            string message = string.Join(
++                Environment.NewLine,
++                new[] { args.SubtitleText, args.GuideText }
++                    .Where(text => !string.IsNullOrWhiteSpace(text))
++            );
++            return NativeDialogBridge.RequestText(
++                string.IsNullOrWhiteSpace(args.HeaderText) ? "Software Keyboard" : args.HeaderText,
++                message,
++                args.InitialText,
++                args.StringLengthMin,
++                args.StringLengthMax,
++                args.KeyboardMode.ToString(),
++                args.SubmitText,
++                out userText
++            );
+         }
+ 
+         public bool DisplayMessageDialog(string title, string message)
+         {
+-            SDL_ShowSimpleMessageBox(SDL_MessageBoxFlags.SDL_MESSAGEBOX_INFORMATION, title, message, WindowHandle);
+-
+-            return true;
++            return NativeDialogBridge.RequestMessage(title, message);
+         }
+ 
+         public bool DisplayCabinetDialog(out string userText)
+         {
+-            // SDL3 doesn't support input dialogs
+-            userText = "Ryujinx";
+-
+-            return true;
++            return NativeDialogBridge.RequestText(
++                "Amiibo Cabinet",
++                "Enter a name for the Amiibo.",
++                string.Empty,
++                0,
++                0,
++                out userText
++            );
+         }
+ 
+         public void DisplayCabinetMessageDialog()
+         {
+-            SDL_ShowSimpleMessageBox(SDL_MessageBoxFlags.SDL_MESSAGEBOX_INFORMATION, "Cabinet Dialog", "Please scan your Amiibo now.", WindowHandle);
++            NativeDialogBridge.RequestMessage("Amiibo Cabinet", "Please scan your Amiibo now.");
+         }
+ 
+         public bool DisplayMessageDialog(ControllerAppletUIArgs args)
+@@ -506,7 +520,11 @@ namespace Ryujinx.Headless
+                            + (args.IsDocked ? "Docked mode set. Handheld is also invalid.\n\n" : string.Empty)
+                            + "Please reconfigure Input now and then press OK.";
+ 
+-            return DisplayMessageDialog("Controller Applet", message);
++            return NativeDialogBridge.RequestConfirmation(
++                "Controller Applet",
++                message,
++                ["Continue", "Cancel"]
++            );
+         }
+ 
+         public IDynamicTextInputHandler CreateDynamicTextInputHandler()
+@@ -523,36 +541,10 @@ namespace Ryujinx.Headless
+ 
+         public unsafe bool DisplayErrorAppletDialog(string title, string message, string[] buttonsText, (uint Module, uint Description)? errorCode = null)
+         {
+-            SDL_MessageBoxButtonData[] buttons = new SDL_MessageBoxButtonData[buttonsText.Length];
+-
+-            for (int i = 0; i < buttonsText.Length; i++)
+-            {
+-                string buttonText = buttonsText[i];
+-                fixed (byte* pButtonText = &buttonText.ToBytes()[0])
+-                buttons[i] = new SDL_MessageBoxButtonData
+-                {
+-                    buttonID = i,
+-                    text = pButtonText,
+-                };
+-            }
+-
+-            fixed (byte* pTitle = &title.ToBytes()[0])
+-            fixed (byte* pMessage = &message.ToBytes()[0])
+-            fixed (SDL_MessageBoxButtonData* p = &buttons[0]) {
+-                SDL_MessageBoxData data = new()
+-                {
+-                    title = pTitle,
+-                    message = pMessage,
+-                    buttons = p,
+-                    numbuttons = buttonsText.Length,
+-                    window = WindowHandle
+-                };
+-
+-
+-                SDL_ShowMessageBox(&data, null);
+-            }
+-
+-            return true;
++            string detail = errorCode is { } code
++                ? $"{message}{Environment.NewLine}{Environment.NewLine}Error {code.Module:X4}-{code.Description:X4}"
++                : message;
++            return NativeDialogBridge.RequestConfirmation(title, detail, buttonsText);
+         }
+ 
+         public void Dispose()
+@@ -578,7 +570,7 @@ namespace Ryujinx.Headless
+ 
+         public UserProfile ShowPlayerSelectDialog()
+         {
+-            return AccountSaveDataManager.GetLastUsedUser();
++            return NativeProfileBridge.RequestProfile();
+         }
+         
+         public void TakeScreenshot()

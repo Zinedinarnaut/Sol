@@ -1,0 +1,400 @@
+diff --git a/src/Ryujinx.Common/ReleaseInformation.cs b/src/Ryujinx.Common/ReleaseInformation.cs
+index 5452527..9e8e265 100644
+--- a/src/Ryujinx.Common/ReleaseInformation.cs
++++ b/src/Ryujinx.Common/ReleaseInformation.cs
+@@ -25,7 +25,11 @@ namespace Ryujinx.Common
+ 
+         public static bool IsReleaseBuild => IsValid && ReleaseChannelName.Equals(ReleaseChannel);
+ 
+-        public static string Version => IsValid ? BuildVersion : Assembly.GetEntryAssembly()!.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
++        public static string Version => IsValid
++            ? BuildVersion
++            : (Assembly.GetEntryAssembly() ?? typeof(ReleaseInformation).Assembly)
++                .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
++                .InformationalVersion;
+ 
+         public static string GetChangelogUrl(Version currentVersion, Version newVersion) =>
+             IsCanaryBuild
+diff --git a/src/Ryujinx.Graphics.Vulkan/MoltenVK/MVKInitialization.cs b/src/Ryujinx.Graphics.Vulkan/MoltenVK/MVKInitialization.cs
+index 4f5dbf6..8c3da7b 100644
+--- a/src/Ryujinx.Graphics.Vulkan/MoltenVK/MVKInitialization.cs
++++ b/src/Ryujinx.Graphics.Vulkan/MoltenVK/MVKInitialization.cs
+@@ -1,6 +1,7 @@
+ using Silk.NET.Core.Loader;
+ using Silk.NET.Vulkan;
+ using System;
++using System.IO;
+ using System.Runtime.InteropServices;
+ using System.Runtime.Versioning;
+ 
+@@ -37,8 +38,19 @@ namespace Ryujinx.Graphics.Vulkan.MoltenVK
+         {
+             if (path.EndsWith(VulkanLib))
+             {
+-                path = path[..^VulkanLib.Length] + "libMoltenVK.dylib";
+-                return [path];
++                string moltenVkPath = path[..^VulkanLib.Length] + "libMoltenVK.dylib";
++
++                if (!Path.IsPathRooted(moltenVkPath))
++                {
++                    string assemblyDirectory = Path.GetDirectoryName(typeof(MVKInitialization).Assembly.Location);
++
++                    if (!string.IsNullOrEmpty(assemblyDirectory))
++                    {
++                        moltenVkPath = Path.Combine(assemblyDirectory, "libMoltenVK.dylib");
++                    }
++                }
++
++                return [moltenVkPath];
+             }
+ 
+             return [];
+diff --git a/src/Ryujinx.SDL3.Common/SDL3Driver.cs b/src/Ryujinx.SDL3.Common/SDL3Driver.cs
+index 529a846..7328b56 100644
+--- a/src/Ryujinx.SDL3.Common/SDL3Driver.cs
++++ b/src/Ryujinx.SDL3.Common/SDL3Driver.cs
+@@ -25,6 +25,7 @@ namespace Ryujinx.SDL3.Common
+         }
+ 
+         public static Action<Action> MainThreadDispatcher { get; set; }
++        public static bool UseExternalEventPump { get; set; }
+ 
+         private const SDL_InitFlags SdlInitFlags = SDL_InitFlags.SDL_INIT_EVENTS | SDL_InitFlags.SDL_INIT_GAMEPAD | SDL_InitFlags.SDL_INIT_JOYSTICK | SDL_InitFlags.SDL_INIT_AUDIO | SDL_InitFlags.SDL_INIT_VIDEO;
+ 
+@@ -104,9 +105,13 @@ namespace Ryujinx.SDL3.Common
+                 }
+ 
+                 _registeredWindowHandlers = new ConcurrentDictionary<SDL_WindowID, Action<SDL_Event>>();
+-                _worker = new Thread(EventWorker);
+                 _isRunning = true;
+-                _worker.Start();
++
++                if (!UseExternalEventPump)
++                {
++                    _worker = new Thread(EventWorker);
++                    _worker.Start();
++                }
+             }
+         }
+ 
+@@ -162,19 +167,26 @@ namespace Ryujinx.SDL3.Common
+ 
+             while (_isRunning)
+             {
+-                MainThreadDispatcher?.Invoke(() =>
+-                {
+-                    SDL_Event evnt = new();
+-                    while (SDL_PollEvent(&evnt))
+-                    {
+-                        HandleSDLEvent(ref evnt);
+-                    }
+-                });
++                MainThreadDispatcher?.Invoke(PumpEvents);
+ 
+                 waitHandle.Wait(WaitTimeMs);
+             }
+         }
+ 
++        public unsafe void PumpEvents()
++        {
++            if (!_isRunning)
++            {
++                return;
++            }
++
++            SDL_Event evnt = new();
++            while (SDL_PollEvent(&evnt))
++            {
++                HandleSDLEvent(ref evnt);
++            }
++        }
++
+         protected virtual void Dispose(bool disposing)
+         {
+             if (!disposing)
+diff --git a/src/Ryujinx/Headless/HeadlessRyujinx.Init.cs b/src/Ryujinx/Headless/HeadlessRyujinx.Init.cs
+index ff7e56c..267ba1a 100644
+--- a/src/Ryujinx/Headless/HeadlessRyujinx.Init.cs
++++ b/src/Ryujinx/Headless/HeadlessRyujinx.Init.cs
+@@ -20,14 +20,22 @@ using Silk.NET.Vulkan;
+ using System;
+ using System.IO;
+ using System.Text.Json;
++using System.Threading;
+ using System.Threading.Tasks;
+ 
+ namespace Ryujinx.Headless
+ {
+     public partial class HeadlessRyujinx
+     {
++        private static int _initialized;
++
+         public static void Initialize()
+         {
++            if (Interlocked.Exchange(ref _initialized, 1) != 0)
++            {
++                return;
++            }
++
+             // Ensure Discord presence timestamp begins at the absolute start of when Ryujinx is launched
+             DiscordIntegrationModule.EmulatorStartedAt = Timestamps.Now;
+ 
+@@ -205,7 +213,7 @@ namespace Ryujinx.Headless
+ 
+                 return new VulkanRenderer(
+                     api,
+-                    (instance, vk) => new SurfaceKHR((ulong)vulkanWindow.CreateWindowSurface(instance.Handle)),
++                    (instance, vk) => new SurfaceKHR((ulong)vulkanWindow.CreateWindowSurface(instance, vk)),
+                     VulkanWindow.GetRequiredInstanceExtensions,
+                     preferredGpuId);
+             }
+diff --git a/src/Ryujinx/Headless/Windows/VulkanWindow.cs b/src/Ryujinx/Headless/Windows/VulkanWindow.cs
+index b71dbd7..1fbd1a9 100644
+--- a/src/Ryujinx/Headless/Windows/VulkanWindow.cs
++++ b/src/Ryujinx/Headless/Windows/VulkanWindow.cs
+@@ -2,6 +2,9 @@ using Ryujinx.Common.Configuration;
+ using Ryujinx.Common.Logging;
+ using Ryujinx.Input.HLE;
+ using Ryujinx.SDL3.Common;
++using Silk.NET.Vulkan;
++using Silk.NET.Vulkan.Extensions.EXT;
++using Silk.NET.Vulkan.Extensions.KHR;
+ using System;
+ using SDL;
+ using static SDL.SDL3;
+@@ -35,20 +38,47 @@ namespace Ryujinx.Headless
+             }
+             else
+             {
+-                Renderer?.Window.SetSize(DefaultWidth, DefaultHeight);
+-                MouseDriver.SetClientSize(DefaultWidth, DefaultHeight);
++                Renderer?.Window.SetSize(Width, Height);
++                MouseDriver.SetClientSize(Width, Height);
+             }
+         }
+ 
+-        public unsafe nint CreateWindowSurface(nint instance)
++        public unsafe nint CreateWindowSurface(Instance instance, Vk api)
+         {
++            if (NativeEmbeddedEntrypoint.IsEmbedded)
++            {
++                if (!api.TryGetInstanceExtension(instance, out ExtMetalSurface metalSurfaceApi))
++                {
++                    throw new InvalidOperationException("VK_EXT_metal_surface is unavailable.");
++                }
++
++                MetalSurfaceCreateInfoEXT createInfo = new()
++                {
++                    SType = StructureType.MetalSurfaceCreateInfoExt,
++                    PLayer = (nint*)NativeEmbeddedEntrypoint.MetalLayer,
++                };
++
++                Result result = metalSurfaceApi.CreateMetalSurface(
++                    instance,
++                    in createInfo,
++                    null,
++                    out SurfaceKHR metalSurface
++                );
++                if (result != Result.Success)
++                {
++                    throw new InvalidOperationException($"vkCreateMetalSurfaceEXT failed with {result}.");
++                }
++
++                return (nint)metalSurface.Handle;
++            }
++
+             VkSurfaceKHR_T surface = new();
+             VkSurfaceKHR_T* surfaceHandle = &surface;
+             VkSurfaceKHR_T** surfaceHandleHandle = &surfaceHandle;
+ 
+             void CreateSurface()
+             {
+-                if (!SDL_Vulkan_CreateSurface(WindowHandle, (VkInstance_T*)instance, null, surfaceHandleHandle))
++                if (!SDL_Vulkan_CreateSurface(WindowHandle, (VkInstance_T*)instance.Handle, null, surfaceHandleHandle))
+                 {
+                     string errorMessage = $"SDL_Vulkan_CreateSurface failed with error \"{SDL_GetError()}\"";
+ 
+@@ -72,6 +102,11 @@ namespace Ryujinx.Headless
+ 
+         public unsafe static string[] GetRequiredInstanceExtensions()
+         {
++            if (NativeEmbeddedEntrypoint.IsEmbedded)
++            {
++                return [KhrSurface.ExtensionName, ExtMetalSurface.ExtensionName];
++            }
++
+             uint extensionCount = 0;
+             byte** extensions = SDL_Vulkan_GetInstanceExtensions(&extensionCount);
+             if (extensionCount == 0) {
+diff --git a/src/Ryujinx/Headless/Windows/WindowBase.cs b/src/Ryujinx/Headless/Windows/WindowBase.cs
+index 49b2a38..b8c3307 100644
+--- a/src/Ryujinx/Headless/Windows/WindowBase.cs
++++ b/src/Ryujinx/Headless/Windows/WindowBase.cs
+@@ -162,6 +162,18 @@ namespace Ryujinx.Headless
+         }
+ 
+         private void InitializeWindow()
++        {
++            if (NativeEmbeddedEntrypoint.IsEmbedded)
++            {
++                NativeEmbeddedEntrypoint.InvokeOnMainThread(InitializeWindowCore);
++            }
++            else
++            {
++                InitializeWindowCore();
++            }
++        }
++
++        private void InitializeWindowCore()
+         {
+             ProcessResult activeProcess = Device.Processes.ActiveApplication;
+             ApplicationControlProperty nacp = activeProcess.ApplicationControlProperties;
+@@ -172,27 +184,54 @@ namespace Ryujinx.Headless
+             string titleIdSection = string.IsNullOrWhiteSpace(activeProcess.ProgramIdText) ? string.Empty : $" ({activeProcess.ProgramIdText.ToUpper()})";
+             string titleArchSection = activeProcess.Is64Bit ? " (64-bit)" : " (32-bit)";
+ 
+-            Width = DefaultWidth;
+-            Height = DefaultHeight;
+-
+-            if (IsExclusiveFullscreen)
++            if (NativeEmbeddedEntrypoint.IsEmbedded)
+             {
+-                Width = ExclusiveFullscreenWidth;
+-                Height = ExclusiveFullscreenHeight;
+-
++                Width = NativeEmbeddedEntrypoint.SurfaceWidth;
++                Height = NativeEmbeddedEntrypoint.SurfaceHeight;
+                 DefaultFlags = SDL_WindowFlags.SDL_WINDOW_HIGH_PIXEL_DENSITY;
+-                FullscreenFlag = SDL_WindowFlags.SDL_WINDOW_FULLSCREEN;
++                FullscreenFlag = 0;
+             }
+-            else if (IsFullscreen)
++            else
+             {
+-                DefaultFlags = SDL_WindowFlags.SDL_WINDOW_HIGH_PIXEL_DENSITY;
+-                FullscreenFlag = SDL_WindowFlags.SDL_WINDOW_BORDERLESS;
++                Width = DefaultWidth;
++                Height = DefaultHeight;
++
++                if (IsExclusiveFullscreen)
++                {
++                    Width = ExclusiveFullscreenWidth;
++                    Height = ExclusiveFullscreenHeight;
++
++                    DefaultFlags = SDL_WindowFlags.SDL_WINDOW_HIGH_PIXEL_DENSITY;
++                    FullscreenFlag = SDL_WindowFlags.SDL_WINDOW_FULLSCREEN;
++                }
++                else if (IsFullscreen)
++                {
++                    DefaultFlags = SDL_WindowFlags.SDL_WINDOW_HIGH_PIXEL_DENSITY;
++                    FullscreenFlag = SDL_WindowFlags.SDL_WINDOW_BORDERLESS;
++                }
+             }
+ 
+             SDL_PropertiesID props = SDL_CreateProperties();
+-            SDL_SetStringProperty(props, SDL_PROP_WINDOW_CREATE_TITLE_STRING, $"Ryujinx {Program.Version}{titleNameSection}{titleVersionSection}{titleIdSection}{titleArchSection}");
++            string windowTitle = NativeEmbeddedEntrypoint.IsEmbedded
++                ? $"{(string.IsNullOrWhiteSpace(titleNameSection) ? "Game" : titleNameSection[3..])} — Sol"
++                : $"Sol Engine {Program.Version}{titleNameSection}{titleVersionSection}{titleIdSection}{titleArchSection}";
++            SDL_SetStringProperty(props, SDL_PROP_WINDOW_CREATE_TITLE_STRING, windowTitle);
+-            SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_X_NUMBER, SDL_WINDOWPOS_CENTERED_DISPLAY(DisplayId));
+-            SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_Y_NUMBER, SDL_WINDOWPOS_CENTERED_DISPLAY(DisplayId));
++
++            if (NativeEmbeddedEntrypoint.IsEmbedded)
++            {
++                ReadOnlySpan<byte> cocoaViewProperty = SDL_PROP_WINDOW_CREATE_COCOA_VIEW_POINTER;
++
++                fixed (byte* propertyName = cocoaViewProperty)
++                {
++                    SDL_SetPointerProperty(props, propertyName, NativeEmbeddedEntrypoint.CocoaView);
++                }
++            }
++            else
++            {
++                SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_X_NUMBER, SDL_WINDOWPOS_CENTERED_DISPLAY(DisplayId));
++                SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_Y_NUMBER, SDL_WINDOWPOS_CENTERED_DISPLAY(DisplayId));
++            }
++
+             SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER, Width);
+             SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, Height);
+             SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_FLAGS_NUMBER, (long)(DefaultFlags | FullscreenFlag | WindowFlags));
+@@ -209,10 +248,14 @@ namespace Ryujinx.Headless
+                 throw new Exception(errorMessage);
+             }
+ 
+-            SetWindowIcon();
++            if (!NativeEmbeddedEntrypoint.IsEmbedded)
++            {
++                SetWindowIcon();
++            }
+ 
+             _windowId = SDL_GetWindowID(WindowHandle);
+             SDL3Driver.Instance.RegisterWindow(_windowId, HandleWindowEvent);
++            NativeEmbeddedEntrypoint.SetWindowReady(true);
+         }
+ 
+         private void HandleWindowEvent(SDL_Event evnt)
+@@ -222,6 +265,17 @@ namespace Ryujinx.Headless
+                 switch (evnt.Type)
+                 {
+                     case SDL_EventType.SDL_EVENT_WINDOW_RESIZED:
++                        // The containing AppKit view owns embedded-surface
++                        // geometry. SDL can briefly report 0x0 while SwiftUI
++                        // transitions the representable into place, which
++                        // would make the Vulkan guest create invalid
++                        // zero-extent images. ResizeEmbeddedSurface forwards
++                        // the stable backing-pixel size explicitly instead.
++                        if (NativeEmbeddedEntrypoint.IsEmbedded)
++                        {
++                            break;
++                        }
++
+                         // Unlike on Windows, this event fires on macOS when triggering fullscreen mode.
+                         // And promptly crashes the process because `Renderer?.window.SetSize` is undefined.
+                         // As we don't need this to fire in either case we can test for fullscreen.
+@@ -365,9 +419,17 @@ namespace Ryujinx.Headless
+             {
+                 UpdateFrame();
+ 
+-                SDL_PumpEvents();
+-
+-                ProcessMainThreadQueue();
++                if (NativeEmbeddedEntrypoint.IsEmbedded)
++                {
++                    // The native AppKit host owns SDL event polling. Keeping a
++                    // second synchronous pump here can starve Cocoa window
++                    // creation behind the SDL event worker.
++                }
++                else
++                {
++                    SDL_PumpEvents();
++                    ProcessMainThreadQueue();
++                }
+ 
+                 // Polling becomes expensive if it's not slept
+                 Thread.Sleep(1);
+@@ -568,9 +630,22 @@ namespace Ryujinx.Headless
+                 TouchScreenManager?.Dispose();
+                 NpadManager.Dispose();
+ 
+-                SDL3Driver.Instance.UnregisterWindow(_windowId);
++                void DestroyWindow()
++                {
++                    NativeEmbeddedEntrypoint.SetWindowReady(false);
++                    SDL3Driver.Instance.UnregisterWindow(_windowId);
++                    SDL_DestroyWindow(WindowHandle);
++                    WindowHandle = null;
++                }
+ 
+-                SDL_DestroyWindow(WindowHandle);
++                if (NativeEmbeddedEntrypoint.IsEmbedded)
++                {
++                    NativeEmbeddedEntrypoint.InvokeOnMainThread(DestroyWindow);
++                }
++                else
++                {
++                    DestroyWindow();
++                }
+ 
+                 SDL3Driver.Instance.Dispose();
+             }

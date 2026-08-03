@@ -1,6 +1,6 @@
 # Sol
 
-Sol is a native macOS app for running Sol Engine. The library, setup,
+Sol is a native macOS Nintendo switch emulator made for running Sol Engine. The library, setup,
 controller mapping, profiles, settings, launch progress, and session controls
 are written with SwiftUI and AppKit. Games render into an AppKit-owned surface
 through Vulkan and MoltenVK.
@@ -59,9 +59,9 @@ public-preview launches.
 - Temporal provides no benefit in this capped scene while adding roughly
   316 MiB of Metal memory and substantial GPU cost.
 - Frame Generation produces additional frames, but throttles the real renderer
-  from 30 to 21.6 FPS. Output reaches 43.2 FPS—not the intended 60—and latency
+  from 30 to 21.6 FPS. Output reaches 43.2 FPS not the intended 60 and latency
   will feel worse.
-- A GPU-bound, unlocked in-game scene is still needed to measure genuine
+- A GPU bound, unlocked in game scene is still needed to measure genuine
   performance uplift. This test primarily measures DLSM pipeline overhead.
 
 ## Requirements

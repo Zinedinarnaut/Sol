@@ -68,9 +68,13 @@ final class DLSMTemporalReconstructionProviderTests: XCTestCase {
         temporalDescriptor.isAutoExposureEnabled = true
         temporalDescriptor.isReactiveMaskTextureEnabled = true
         temporalDescriptor.reactiveMaskTextureFormat = .r8Unorm
-        let temporalScaler = try XCTUnwrap(
-            temporalDescriptor.makeTemporalScaler(device: device)
-        )
+        guard let temporalScaler = temporalDescriptor.makeTemporalScaler(
+            device: device
+        ) else {
+            throw XCTSkip(
+                "MetalFX temporal scaling is unavailable on this test host"
+            )
+        }
         let outputDescriptor = MTLTextureDescriptor.texture2DDescriptor(
             pixelFormat: .bgra8Unorm,
             width: width * 2,

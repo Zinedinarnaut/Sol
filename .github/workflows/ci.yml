@@ -16,7 +16,7 @@ jobs:
 
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Audit public source
         run: ./script/audit_public_source.sh

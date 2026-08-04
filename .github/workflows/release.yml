@@ -95,3 +95,34 @@ jobs:
               --notes-file "$RELEASE_NOTES" \
               --prerelease
           fi
+
+  dmg-release:
+    name: Build and attach ad-hoc DMG
+    runs-on: macos-26
+    needs: source-release
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@v7
+
+      # No Apple Developer identity: the DMG is ad-hoc signed so users can run
+      # it via System Settings -> Privacy & Security -> "Open Anyway", or with
+      # the bundled dmg-signing.sh script.
+      - name: Build ad-hoc DMG
+        env:
+          SOL_APPLE_SIGNING: "off"
+        run: ./script/build_dmg.sh
+
+      - name: Verify DMG
+        run: ./script/test_dmg_release.sh dist/Sol-*.dmg
+
+      - name: Attach DMG, checksum, and signing script
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release upload "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --clobber \
+            dist/Sol-*.dmg \
+            dist/Sol-*.dmg.sha256 \
+            script/dmg-signing.sh

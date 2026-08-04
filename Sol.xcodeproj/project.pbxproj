@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		0544ACF1C37608DA006E9BFD /* DLSMTemporalInputProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FA0BEEEC190CE80372CAEE5 /* DLSMTemporalInputProvider.swift */; };
 		06D978A769DC1C35AE0771A5 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E22711CC4EA5A88833898CE8 /* NotificationService.swift */; };
+		086531E0D1EF06627016DFAB /* AppIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = 35BA3BEC4FD5C0006F1FCFC0 /* AppIcon.icns */; };
 		08BD67D857719C96FE369FDB /* StatusBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4959B37FF0373FF935F9CE7E /* StatusBarController.swift */; };
 		0C91FBFF6FAF57552C1EC71C /* AppleAccountService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA76FC8A1AEEA8C1BB6E0991 /* AppleAccountService.swift */; };
 		0D482E4E9282BC190660DFC0 /* WidgetTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F2072E61821AF26E120CDF4 /* WidgetTheme.swift */; };
@@ -172,6 +173,7 @@
 		2EE608B9D2057B0E47D2DE5F /* ControllerManagerViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControllerManagerViewModel.swift; sourceTree = "<group>"; };
 		2FA375FBF3D67A75DF019ADF /* SolEngineConfigurationStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SolEngineConfigurationStore.swift; sourceTree = "<group>"; };
 		30F77A3AC106E55B1BB01009 /* TopPlayedWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopPlayedWidget.swift; sourceTree = "<group>"; };
+		35BA3BEC4FD5C0006F1FCFC0 /* AppIcon.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = AppIcon.icns; sourceTree = "<group>"; };
 		39A0C9D13B057BFB990B8E5E /* ConsoleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConsoleView.swift; sourceTree = "<group>"; };
 		3B024CC825CDE671800EF842 /* SolEnginePathResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SolEnginePathResolver.swift; sourceTree = "<group>"; };
 		4792960B1F92A85412AAB25D /* GameCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameCardView.swift; sourceTree = "<group>"; };
@@ -260,6 +262,7 @@
 		1888F8EF073AF1AB5E1D363F = {
 			isa = PBXGroup;
 			children = (
+				5A3227029E7430553F4D2EF6 /* Resources */,
 				CF9DE1F116E2F69D4A0C40D4 /* Sol */,
 				E1BD6B856EF412F60E9C1C3C /* SolDLSM */,
 				F2A947E196DA0503F2DEFCDE /* SolQuickLook */,
@@ -289,6 +292,14 @@
 				DEE078F7A542A06FCC9A47E1 /* SolEngineSession.swift */,
 			);
 			path = Models;
+			sourceTree = "<group>";
+		};
+		5A3227029E7430553F4D2EF6 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				35BA3BEC4FD5C0006F1FCFC0 /* AppIcon.icns */,
+			);
+			path = Resources;
 			sourceTree = "<group>";
 		};
 		5F95CBE31862E067D1BFE44E /* Views */ = {
@@ -501,6 +512,7 @@
 			buildConfigurationList = 6AA741372028B8A51AE40FAB /* Build configuration list for PBXNativeTarget "Sol" */;
 			buildPhases = (
 				29A0337D912A5EAC2B02B03C /* Sources */,
+				540C3797BEB88B4B83845FF0 /* Resources */,
 				245349072A6FA4C443F164DB /* Frameworks */,
 				610A98ECE8AD53085FDCE98E /* Embed Foundation Extensions */,
 				6E4F1992FED25B5B01B41CF7 /* Embed Frameworks */,
@@ -595,16 +607,24 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				4C5415BCC71C82E085184A54 /* Sol */,
 				3786DDB917734F87481EF607 /* SolDLSM */,
+				4C5415BCC71C82E085184A54 /* Sol */,
+				F7F61633CB1F1B425203B6A8 /* SolWidgets */,
 				2ED00B5FD651D8E9D55C8B10 /* SolQuickLook */,
 				DA396DC8291BA4770A4DDB6F /* SolShare */,
-				F7F61633CB1F1B425203B6A8 /* SolWidgets */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		540C3797BEB88B4B83845FF0 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				086531E0D1EF06627016DFAB /* AppIcon.icns in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		A283E89AF727CDA9414608C1 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;

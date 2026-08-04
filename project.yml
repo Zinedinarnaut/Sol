@@ -53,6 +53,8 @@ targets:
     platform: macOS
     sources:
       - Sources/Sol
+      - path: Resources/AppIcon.icns
+        buildPhase: resources
     postBuildScripts:
       - script: '"$SRCROOT/script/embed_sol_engine_runtime.sh"'
         name: Embed Sol Engine Runtime
@@ -86,6 +88,7 @@ targets:
         NSHighResolutionCapable: true
         NSPrefersDisplaySafeAreaCompatibilityMode: false
         NSLocalNetworkUsageDescription: "Sol uses your local network to find and connect to multiplayer sessions."
+        CFBundleIconFile: AppIcon
         LSApplicationCategoryType: "public.app-category.games"
         GCSupportsGameMode: true
         LSSupportsGameMode: true

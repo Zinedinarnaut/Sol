@@ -26,7 +26,8 @@ SOL_APPLE_SIGNING=off ./script/build_and_run.sh --build
 swift test
 ```
 
-Run `./script/generate_project.sh` after editing `project.yml`.
+Run `./script/generate_project.sh` after editing `project.yml`. It needs
+[XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`).
 
 ## Pull requests
 

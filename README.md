@@ -1,16 +1,21 @@
 # Sol
 
-Sol is a native macOS Nintendo switch emulator made for running Sol Engine. The library, setup,
-controller mapping, profiles, settings, launch progress, and session controls
-are written with SwiftUI and AppKit. Games render into an AppKit-owned surface
-through Vulkan and MoltenVK.
+Sol is a native macOS emulator powered by its bundled Sol Engine. It is one
+self-contained project: the SwiftUI and AppKit application, native host bridge,
+patched engine source, and private runtime build together. It does not require
+a separate Ryujinx or Ryubing installation.
 
-This is an early developer preview. The source is open so the native frontend
-and engine boundary can be tested in the open; it is not yet a promise that
+The game library, setup, controller mapping, profiles, settings, launch
+progress, and session controls use native macOS frameworks. Games execute
+through Sol Engine and render into an AppKit-owned surface through Vulkan and
+MoltenVK.
+
+This is an early developer preview. The source is open so the complete app and
+engine integration can be tested in the open; it is not yet a promise that
 every game or controller will behave perfectly.
 
-The repository includes the complete, patched Sol Engine source used by the
-app. Building Sol does not fetch a separate engine checkout.
+Every clone and GitHub source archive includes the complete, patched Sol Engine
+source used by the app. Building Sol does not fetch a separate engine checkout.
 
 The preview is source-only for now. A downloadable build will wait until the
 app can be distributed with Developer ID signing and Apple notarization.

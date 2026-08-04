@@ -6,7 +6,7 @@ APP_NAME="Sol"
 BUNDLE_ID="com.solemu.app"
 CONFIGURATION="${SOL_BUILD_CONFIGURATION:-Debug}"
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 DERIVED_DATA="/tmp/sol-derived-data"
 APP_BUNDLE="$DERIVED_DATA/Build/Products/$CONFIGURATION/$APP_NAME.app"
 APP_BINARY="$APP_BUNDLE/Contents/MacOS/$APP_NAME"

@@ -12,8 +12,10 @@ remains the emulation engine.
 - `NativeHost/Sol.Engine`: an Apple-only managed component
   assembled from upstream emulation, configuration, input, audio, and renderer
   sources. It compiles no Avalonia package or view.
-- `Vendor/Ryubing`: an ignored, pinned upstream checkout fetched by
-  `script/fetch_ryubing_source.sh`.
+- `Vendor/Ryubing`: the complete pinned, buildable upstream engine dependency
+  graph with Sol's runtime, stability, native-surface, multiplayer, and DLSM
+  changes applied. Upstream desktop UI projects are excluded. The engine source
+  is committed with the app so builds and source archives are self-contained.
 
 The app embeds its bundled .NET runtime with `hostfxr` and resolves a small set
 of unmanaged-callable entry points. The separate Native AOT bridge remains the
@@ -81,6 +83,8 @@ one emulation session.
 
 ## Upstream
 
-Sol Engine is built from Ryubing's maintained Ryujinx fork at commit
-`a82350bb774f70fcbd41c9987bf67a3775409963`. Ryujinx is MIT licensed; its
-upstream copyright and license remain in redistributed source and binaries.
+Sol Engine is based on Ryubing's maintained Ryujinx fork at commit
+`a82350bb774f70fcbd41c9987bf67a3775409963`. The complete source dependency
+graph compiled by Sol is bundled in this repository with Sol's patches already
+applied. Ryujinx is MIT licensed; its upstream copyright and license remain in
+redistributed source and binaries.

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 SDL_COMMIT="5403934fd30e3568b1e20f652d4823c796739722"
 SOURCE_DIR="$ROOT_DIR/.tools/SDL-$SDL_COMMIT"
 DERIVED_DATA="$ROOT_DIR/.tools/SDL-$SDL_COMMIT-derived"

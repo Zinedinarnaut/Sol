@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 DOTNET="$ROOT_DIR/.tools/dotnet/dotnet"
 PROJECT="$ROOT_DIR/NativeHost/Sol.Engine/Sol.Engine.csproj"
 OUTPUT_DIR="$ROOT_DIR/NativeHost/artifacts/engine"
@@ -12,11 +12,7 @@ if [[ ! -x "$DOTNET" ]]; then
   exit 1
 fi
 
-if [[ ! -d "$ROOT_DIR/Vendor/Ryubing/.git" ]]; then
-  "$ROOT_DIR/script/fetch_ryubing_source.sh"
-fi
-
-"$ROOT_DIR/script/prepare_native_ryubing_source.sh"
+"$ROOT_DIR/script/verify_sol_engine_source.sh"
 
 DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1 \
   "$DOTNET" publish "$PROJECT" \

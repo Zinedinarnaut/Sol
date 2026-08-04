@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 PROJECT="$ROOT_DIR/Sol.xcodeproj"
 SCHEME="Sol"
 VERSION="${SOL_RELEASE_VERSION:-}"
@@ -55,7 +55,7 @@ mkdir -p "$DIST_DIR"
 /bin/rm -f "$ZIP_PATH" "$CHECKSUM_PATH"
 
 "$ROOT_DIR/script/install_dotnet_sdk.sh"
-"$ROOT_DIR/script/fetch_ryubing_source.sh"
+"$ROOT_DIR/script/verify_sol_engine_source.sh"
 
 xcodebuild \
   -allowProvisioningUpdates \

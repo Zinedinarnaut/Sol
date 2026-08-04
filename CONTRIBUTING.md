@@ -22,7 +22,6 @@ should not include content files.
 
 ```bash
 ./script/install_dotnet_sdk.sh
-./script/fetch_ryubing_source.sh
 SOL_APPLE_SIGNING=off ./script/build_and_run.sh --build
 swift test
 ```
@@ -33,13 +32,13 @@ Run `./script/generate_project.sh` after editing `project.yml`.
 
 - Keep native UI work in SwiftUI/AppKit and avoid introducing a second desktop
   UI framework.
-- Keep engine changes in `NativeHost` or as a focused patch under
-  `script/patches`.
+- Keep engine changes in `NativeHost` or the bundled `Vendor/Ryubing` source,
+  and update the corresponding review patch under `script/patches`.
 - Add a regression test when a bug can be reproduced without protected content.
 - Describe what you tested on a fresh app launch and, for session changes,
   through launch, render, stop, and relaunch.
-- Do not commit build output, the fetched engine checkout, credentials, system
-  files, game content, or personal Xcode data.
+- Do not commit engine build output, credentials, system files, game content,
+  or personal Xcode data.
 
 For broad architecture changes, open a discussion before investing in a large
 patch.

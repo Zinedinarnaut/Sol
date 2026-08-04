@@ -35,9 +35,10 @@ After validating the resulting app on a clean Mac, attach the archive and its
 checksum to the existing release:
 
 ```bash
-gh release upload v0.1.0 \
-  dist/Sol-0.1.0-macOS.zip \
-  dist/Sol-0.1.0-macOS.zip.sha256
+VERSION=0.1.1
+gh release upload "v$VERSION" \
+  "dist/Sol-$VERSION-macOS.zip" \
+  "dist/Sol-$VERSION-macOS.zip.sha256"
 ```
 
 Never upload a local debug build, an Apple Development-signed archive, private

@@ -80,6 +80,8 @@ public-preview launches.
 - A GPU bound, unlocked in game scene is still needed to measure genuine
   performance uplift. This test primarily measures DLSM pipeline overhead.
 
+DLSM (Deep Learning Super Metal) is Sol’s experimental graphics research layer for Apple Silicon. It currently provides production-safe spatial upscaling through MetalFX. Temporal reconstruction and frame generation remain disabled unless Sol can obtain and validate the required scene colour, depth, motion, jitter, and frame-timing data from the guest rendering pipeline. DLSM prioritises correct, inspectable rendering paths over synthetic inputs or misleading feature toggles.
+
 ## Requirements
 
 - Apple Silicon Mac

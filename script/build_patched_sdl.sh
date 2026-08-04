@@ -26,6 +26,16 @@ elif ! git -C "$SOURCE_DIR" apply --reverse --check "$PATCH_FILE" >/dev/null 2>&
   exit 1
 fi
 
+# SDL3 pins MACOSX_DEPLOYMENT_TARGET=11.0 in its Xcode project, but Xcode 27
+# requires 12.0 or later. Keep 11.0 where the toolchain still accepts it
+# (Xcode 26 and older); use 12.0 on Xcode 27 and newer.
+XCODE_MAJOR="$(xcodebuild -version 2>/dev/null | sed -nE 's/^Xcode ([0-9]+).*/\1/p' | head -n1)"
+if [ "${XCODE_MAJOR:-0}" -ge 27 ] 2>/dev/null; then
+  SDL_DEPLOYMENT_TARGET=12.0
+else
+  SDL_DEPLOYMENT_TARGET=11.0
+fi
+
 xcodebuild \
   -quiet \
   -project "$SOURCE_DIR/Xcode/SDL/SDL.xcodeproj" \
@@ -35,7 +45,7 @@ xcodebuild \
   -destination "platform=macOS,arch=arm64" \
   ARCHS=arm64 \
   ONLY_ACTIVE_ARCH=YES \
-  MACOSX_DEPLOYMENT_TARGET=11.0 \
+  MACOSX_DEPLOYMENT_TARGET="$SDL_DEPLOYMENT_TARGET" \
   CODE_SIGNING_ALLOWED=NO \
   build >&2
 

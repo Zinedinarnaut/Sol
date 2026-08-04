@@ -5,7 +5,8 @@
 .swiftpm/
 .codex/
 .tools/
-Vendor/Ryubing/
+Vendor/Ryubing/build-native-baseline/
+Vendor/Ryubing/build-native-headless/
 NativeHost/artifacts/
 NativeHost/**/bin/
 NativeHost/**/obj/

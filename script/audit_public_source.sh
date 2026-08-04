@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 cd "$ROOT_DIR"
 
 FAILED=0
@@ -13,9 +13,22 @@ report() {
 
 TRACKED_PATHS="$(git ls-files)"
 
-if /usr/bin/grep -Eq '(^|/)(\.build|\.tools|Vendor/Ryubing|NativeHost/artifacts|bin|obj|xcuserdata)(/|$)' <<<"$TRACKED_PATHS"; then
-  report "generated, fetched, or personal build paths are tracked"
-  /usr/bin/grep -E '(^|/)(\.build|\.tools|Vendor/Ryubing|NativeHost/artifacts|bin|obj|xcuserdata)(/|$)' <<<"$TRACKED_PATHS" >&2
+if /usr/bin/grep -Eq '(^|/)(\.build|\.tools|NativeHost/artifacts|build-native-baseline|build-native-headless|bin|obj|xcuserdata)(/|$)' <<<"$TRACKED_PATHS"; then
+  report "generated or personal build paths are tracked"
+  /usr/bin/grep -E '(^|/)(\.build|\.tools|NativeHost/artifacts|build-native-baseline|build-native-headless|bin|obj|xcuserdata)(/|$)' <<<"$TRACKED_PATHS" >&2
+fi
+
+if [[ -e Vendor/Ryubing/.git ]]; then
+  report "bundled Sol Engine source contains nested Git metadata"
+fi
+
+ENGINE_FILE_COUNT="$(git ls-files Vendor/Ryubing | wc -l | tr -d '[:space:]')"
+if (( ENGINE_FILE_COUNT < 3500 )); then
+  report "bundled Sol Engine source is unexpectedly small: $ENGINE_FILE_COUNT tracked files"
+fi
+
+if ! "$ROOT_DIR/script/verify_sol_engine_source.sh"; then
+  report "bundled Sol Engine source verification failed"
 fi
 
 if /usr/bin/grep -Eiq '\.(nca|nro|nsp|nsz|tik|xci|p12|mobileprovision|provisionprofile)$|(^|/)(prod|title)\.keys$' <<<"$TRACKED_PATHS"; then
@@ -53,11 +66,17 @@ for image_path in \
   fi
 done
 
-WHITESPACE_PATHS=(-- . ':(exclude)script/patches/*.patch')
+WHITESPACE_PATHS=(
+  -- .
+  ':(exclude)script/patches/*.patch'
+  ':(exclude)Vendor/Ryubing/**'
+)
 
 # Unified diffs require a single leading context marker on otherwise blank
 # context lines. Git interprets those required markers as trailing whitespace
-# when a patch file itself is added, so only patch artifacts are exempt here.
+# when a patch file itself is added. The vendored engine snapshot also
+# preserves upstream formatting, so patch artifacts and that snapshot are
+# exempt from Sol-owned whitespace checks.
 if ! git diff --check "${WHITESPACE_PATHS[@]}"; then
   report "git diff reports whitespace errors"
 fi

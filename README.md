@@ -9,13 +9,16 @@ This is an early developer preview. The source is open so the native frontend
 and engine boundary can be tested in the open; it is not yet a promise that
 every game or controller will behave perfectly.
 
+The repository includes the complete, patched Sol Engine source used by the
+app. Building Sol does not fetch a separate engine checkout.
+
 The preview is source-only for now. A downloadable build will wait until the
 app can be distributed with Developer ID signing and Apple notarization.
 
 ## Releases
 
 The current public preview is
-[Sol 0.1.0](https://github.com/Zinedinarnaut/Sol/releases/tag/v0.1.0). Its
+[Sol 0.1.1](https://github.com/Zinedinarnaut/Sol/releases/tag/v0.1.1). Its
 GitHub release contains source archives and build instructions. A notarized app
 download will be added when the distribution identity is ready. Maintainer
 release steps are documented in [`Docs/RELEASING.md`](Docs/RELEASING.md).
@@ -78,18 +81,17 @@ public-preview launches.
 - macOS 15 or later
 - A current Xcode command-line toolchain
 - XcodeGen when changing `project.yml`
-- Internet access for the initial engine and .NET SDK download
+- Internet access for the initial .NET SDK and package restore
 
 Sol does not include games, keys, firmware, or other console system files.
 Those must come from hardware and content you are legally allowed to use.
 
 ## Build from source
 
-Install the project-local .NET SDK, fetch the pinned engine source, and build:
+Install the project-local .NET SDK and build the bundled app and engine source:
 
 ```bash
 ./script/install_dotnet_sdk.sh
-./script/fetch_ryubing_source.sh
 SOL_APPLE_SIGNING=off ./script/build_and_run.sh --build
 ```
 
@@ -129,15 +131,17 @@ matching App Group, Sign in with Apple, and iCloud capabilities.
 ## Project layout
 
 - `Sources/Sol` — native macOS app
-- `NativeHost` — managed engine entry point and native ABI bridge
-- `script/patches` — small, reviewable changes applied to the pinned engine
+- `NativeHost` — Sol Engine managed entry point and native ABI bridge
+- `Vendor/Ryubing` — complete buildable engine source with Sol's patches applied
+- `script/patches` — reviewable record of Sol's changes to the upstream engine
 - `Sources/SolWidgets`, `Sources/SolQuickLook`, `Sources/SolShare` — extensions
 - `Tests/SolTests` — Swift regression tests
 - `Docs/SOL_ENGINE_ARCHITECTURE.md` — engine and process boundary
 
-The upstream engine checkout and generated binaries are intentionally ignored.
-`script/fetch_ryubing_source.sh` fetches commit
-`a82350bb774f70fcbd41c9987bf67a3775409963` when needed.
+The bundled engine source is based on commit
+`a82350bb774f70fcbd41c9987bf67a3775409963`. Only generated build products are
+ignored; the source used to build Sol Engine is part of every clone and GitHub
+source archive.
 
 ## Network and privacy
 

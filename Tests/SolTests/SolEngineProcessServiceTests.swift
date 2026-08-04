@@ -24,21 +24,39 @@ final class SolEngineProcessServiceTests: XCTestCase, @unchecked Sendable {
         try Data([0x01]).write(to: gameURL)
 
         let terminated = expectation(description: "process terminated")
+        let outputCaptured = expectation(description: "stdout and stderr captured")
+        outputCaptured.expectedFulfillmentCount = 2
         var output: [ConsoleLine] = []
+        var capturedStandardOutput = false
+        var capturedStandardError = false
         var terminationStatus: Int32?
         let service = SolEngineProcessService()
 
         try service.launch(
             executableURL: executableURL,
             gamePath: gameURL,
-            onOutput: { output.append($0) },
+            onOutput: { line in
+                output.append(line)
+                if !capturedStandardOutput,
+                   line.stream == .stdout,
+                   line.text.contains("standard output") {
+                    capturedStandardOutput = true
+                    outputCaptured.fulfill()
+                }
+                if !capturedStandardError,
+                   line.stream == .stderr,
+                   line.text.contains("standard error") {
+                    capturedStandardError = true
+                    outputCaptured.fulfill()
+                }
+            },
             onTermination: {
                 terminationStatus = $0
                 terminated.fulfill()
             }
         )
 
-        await fulfillment(of: [terminated], timeout: 5)
+        await fulfillment(of: [terminated, outputCaptured], timeout: 5)
 
         XCTAssertEqual(terminationStatus, 7)
         XCTAssertFalse(service.isRunning)

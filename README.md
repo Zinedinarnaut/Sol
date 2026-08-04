@@ -12,6 +12,14 @@ every game or controller will behave perfectly.
 The preview is source-only for now. A downloadable build will wait until the
 app can be distributed with Developer ID signing and Apple notarization.
 
+## Releases
+
+The current public preview is
+[Sol 0.1.0](https://github.com/Zinedinarnaut/Sol/releases/tag/v0.1.0). Its
+GitHub release contains source archives and build instructions. A notarized app
+download will be added when the distribution identity is ready. Maintainer
+release steps are documented in [`Docs/RELEASING.md`](Docs/RELEASING.md).
+
 ![Sol library](Docs/Images/sol-library.jpg)
 
 | Native settings | Controller mapping |

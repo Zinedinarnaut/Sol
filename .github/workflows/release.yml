@@ -74,9 +74,10 @@ jobs:
 
   dmg-release:
     name: Build and attach ad-hoc DMG
-    # Sol supports macOS 15 minimum, so build the shippable DMG on macos-15 —
-    # this also gates the floor-OS build.
-    runs-on: macos-15
+    # Sol uses the current Xcode toolchain while targeting macOS 15. The DMG
+    # inspection below verifies both Info.plist and the executable's Mach-O
+    # minimum OS; the runner's host version is not the deployment target.
+    runs-on: macos-26
     needs: validate-release
     timeout-minutes: 45
 

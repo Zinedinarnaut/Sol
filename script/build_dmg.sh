@@ -35,11 +35,18 @@ if [ -n "${SOL_DMG_APP:-}" ]; then
   APP="$SOL_DMG_APP"
 else
   echo "==> Building Sol ($CONFIGURATION, unsigned)"
-  APP="$(
+  BUILD_LOG="$(mktemp -t sol-dmg-build.XXXXXX)"
+  if ! (
     cd "$ROOT_DIR" &&
     SOL_BUILD_CONFIGURATION="$CONFIGURATION" SOL_APPLE_SIGNING=off \
-      ./script/build_and_run.sh --build | tail -n1
-  )"
+      ./script/build_and_run.sh --build
+  ) | tee "$BUILD_LOG"; then
+    echo "Sol app build failed; complete build output is shown above." >&2
+    rm -f "$BUILD_LOG"
+    exit 1
+  fi
+  APP="$(tail -n1 "$BUILD_LOG")"
+  rm -f "$BUILD_LOG"
 fi
 if [ ! -d "$APP" ]; then
   echo "No Sol.app to package: $APP" >&2

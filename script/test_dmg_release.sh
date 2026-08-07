@@ -21,6 +21,16 @@ check() { # check <description> <cmd...>
   local desc="$1"; shift
   if "$@" >/dev/null 2>&1; then ok "$desc"; else fail "$desc"; fi
 }
+targets_macos_15() {
+  local app="$1"
+  local plist_min
+  local macho_min
+  plist_min="$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' \
+    "$app/Contents/Info.plist" 2>/dev/null)"
+  macho_min="$(/usr/bin/vtool -show-build "$app/Contents/MacOS/Sol" 2>/dev/null |
+    /usr/bin/awk '$1 == "minos" { print $2; exit }')"
+  [ "$plist_min" = "15.0" ] && [ "$macho_min" = "15.0" ]
+}
 
 # Build a DMG if one was not supplied.
 if [ -z "$DMG" ]; then
@@ -74,6 +84,7 @@ if [ -d "$APP" ]; then
     ! /usr/bin/codesign -d --entitlements :- "$1" 2>/dev/null |
       /usr/bin/grep -Eq "developer.applesignin|developer.ubiquity|application-groups"
   ' sh "$APP"
+  check "main executable targets macOS 15" targets_macos_15 "$APP"
 
   check "engine native present"      test -e "$APP/Contents/Resources/SolEngine/Sol.Engine"
   check "engine managed present"     test -f "$APP/Contents/Resources/SolEngineManaged/Sol.Engine.dll"

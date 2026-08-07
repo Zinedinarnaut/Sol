@@ -38,7 +38,9 @@ innermost-first. `SolPublic.entitlements` enables Hardened Runtime with only the
 JIT/runtime exceptions needed by Sol Engine. The integration test mounts the
 image, validates those entitlements and the private runtime, deliberately
 removes a nested extension signature, runs the repair helper, and verifies the
-hierarchy again. A failed build never creates a new source-only release record.
+hierarchy again. It also checks that both the app metadata and main Mach-O
+executable target macOS 15 even though the release uses the current Xcode
+toolchain. A failed build never creates a new source-only release record.
 
 Build the same artifact locally before tagging:
 

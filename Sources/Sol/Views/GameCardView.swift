@@ -1,9 +1,9 @@
 import SwiftUI
 
 struct GameCardView: View {
-    static let cardSize = CGSize(width: 124, height: 174)
-    static let titleHeight: CGFloat = 38
-    static let verticalSpacing: CGFloat = 6
+    static let cardSize = CGSize(width: 132, height: 185)
+    static let titleHeight: CGFloat = 42
+    static let verticalSpacing: CGFloat = 8
 
     let game: Game
     let isSelected: Bool

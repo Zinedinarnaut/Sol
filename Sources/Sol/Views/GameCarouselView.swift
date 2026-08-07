@@ -20,8 +20,8 @@ struct GameCarouselView: View {
     private let rowHeight: CGFloat = GameCardView.cardSize.height
         + GameCardView.titleHeight
         + GameCardView.verticalSpacing
-        + 24
-    private let cardSpacing: CGFloat = 8
+        + 38
+    private let cardSpacing: CGFloat = 14
 
     @State private var isUserDragging = false
     @State private var cardCenters: [String: CGFloat] = [:]
@@ -80,7 +80,7 @@ struct GameCarouselView: View {
                                     .id(game.id)
                                 }
                             }
-                            .padding(.vertical, 6)
+                            .padding(.vertical, 14)
                             .padding(.horizontal, horizontalInset)
                             .background(
                                 GeometryReader { geo in
@@ -91,6 +91,7 @@ struct GameCarouselView: View {
                                 }
                             )
                         }
+                        .scrollClipDisabled()
                         .frame(height: rowHeight)
                         .coordinateSpace(name: "carousel")
                         .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in

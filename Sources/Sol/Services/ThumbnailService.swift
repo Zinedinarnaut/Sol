@@ -45,7 +45,7 @@ actor ThumbnailService {
             }
         }
 
-        if let image = await fetchFromPlatformSearch(title: game.title, cacheKey: cacheKey, preferWide: false) {
+        if let image = await fetchFromPlatformSearch(game: game, cacheKey: cacheKey, preferWide: false) {
             return image
         }
 
@@ -65,7 +65,7 @@ actor ThumbnailService {
 
         // The platform artwork provider is primary. Nlib remains a fallback
         // because it can provide banners for titles the primary source misses.
-        if let image = await fetchFromPlatformSearch(title: game.title, cacheKey: cacheKey, preferWide: true, validateBackground: true) {
+        if let image = await fetchFromPlatformSearch(game: game, cacheKey: cacheKey, preferWide: true, validateBackground: true) {
             return image
         }
 
@@ -113,13 +113,15 @@ actor ThumbnailService {
         return nil
     }
 
-    private func fetchFromPlatformSearch(title: String, cacheKey: String, preferWide: Bool, validateBackground: Bool = false) async -> NSImage? {
-        guard let url = platformSearchURL(query: title) else { return nil }
+    private func fetchFromPlatformSearch(game: Game, cacheKey: String, preferWide: Bool, validateBackground: Bool = false) async -> NSImage? {
+        guard let url = platformSearchURL(query: game.title) else { return nil }
         do {
             let (data, response) = try await session.data(from: url)
             guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else { return nil }
             guard let result = try? JSONDecoder().decode(PlatformSearchResponse.self, from: data) else { return nil }
-            guard let doc = result.response.docs.first else { return nil }
+            guard let doc = bestPlatformDocument(in: result.response.docs, for: game) else {
+                return nil
+            }
 
             let candidates: [String?]
             if preferWide {
@@ -257,11 +259,64 @@ actor ThumbnailService {
         components?.queryItems = [
             URLQueryItem(name: "q", value: query),
             URLQueryItem(name: "fq", value: fq),
-            URLQueryItem(name: "rows", value: "1"),
+            URLQueryItem(name: "rows", value: "8"),
             URLQueryItem(name: "start", value: "0"),
             URLQueryItem(name: "wt", value: "json")
         ]
         return components?.url
+    }
+
+    private func bestPlatformDocument(
+        in documents: [PlatformSearchDoc],
+        for game: Game
+    ) -> PlatformSearchDoc? {
+        guard !documents.isEmpty else { return nil }
+
+        if let titleID = game.titleId?.lowercased(),
+           let exactIDMatch = documents.first(where: {
+               $0.applicationID?.lowercased() == titleID
+           }) {
+            return exactIDMatch
+        }
+
+        let requestedTitle = Self.normalizedArtworkTitle(game.title)
+        if let exactTitleMatch = documents.first(where: {
+            guard let title = $0.title else { return false }
+            return Self.normalizedArtworkTitle(title) == requestedTitle
+        }) {
+            return exactTitleMatch
+        }
+
+        let requestedTokens = Set(requestedTitle.split(separator: " ").map(String.init))
+        let scored = documents.compactMap { document -> (PlatformSearchDoc, Double)? in
+            guard let title = document.title else { return nil }
+            let candidateTokens = Set(
+                Self.normalizedArtworkTitle(title).split(separator: " ").map(String.init)
+            )
+            guard !requestedTokens.isEmpty, !candidateTokens.isEmpty else { return nil }
+            let shared = requestedTokens.intersection(candidateTokens).count
+            let union = requestedTokens.union(candidateTokens).count
+            return (document, Double(shared) / Double(union))
+        }
+        if let best = scored.max(by: { $0.1 < $1.1 }), best.1 >= 0.72 {
+            return best.0
+        }
+
+        // Older mocked/provider responses may omit identity fields. Keep that
+        // compatible fallback only when there is nothing meaningful to score.
+        return documents.allSatisfy { $0.title == nil && $0.applicationID == nil }
+            ? documents.first
+            : nil
+    }
+
+    private static func normalizedArtworkTitle(_ value: String) -> String {
+        value
+            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+            .unicodeScalars
+            .map { CharacterSet.alphanumerics.contains($0) ? String($0) : " " }
+            .joined()
+            .split(whereSeparator: \.isWhitespace)
+            .joined(separator: " ")
     }
 }
 
@@ -281,6 +336,8 @@ private struct PlatformSearchDocs: Decodable {
 }
 
 private struct PlatformSearchDoc: Decodable {
+    let title: String?
+    let applicationID: String?
     let imageURL: String?
     let imageSquareURL: String?
     let imageWideURL: String?
@@ -290,6 +347,8 @@ private struct PlatformSearchDoc: Decodable {
     let wishlistBanner460URL: String?
 
     enum CodingKeys: String, CodingKey {
+        case title
+        case applicationID = "application_id_s"
         case imageURL = "image_url"
         case imageSquareURL = "image_url_sq_s"
         case imageWideURL = "image_url_h2x1_s"

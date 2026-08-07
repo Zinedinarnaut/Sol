@@ -1,54 +1,77 @@
 # Releasing Sol
 
-Sol has separate source-preview and notarized-binary release stages. Do not
-publish an unsigned or Apple Development-signed app as a public download.
+Sol has two distribution tiers: the current ad-hoc-signed Developer Preview and
+the future Developer ID signed/notarized release. Both are built from a tag on
+`main`; never upload a local debug app.
 
-## Source preview
+## Version contract
 
-1. Update `MARKETING_VERSION` in `project.yml` and regenerate the Xcode project.
-2. Add release notes at `Docs/Releases/<version>.md`.
-3. Merge the release changes into `main` and wait for CI to pass.
-4. Create and push an annotated `v<version>` tag from that `main` commit.
+The release version lives in `project.yml`:
 
-The `Release` workflow validates the tag, project version, release notes,
-public-source audit, and Swift tests. It then creates or updates a GitHub
-prerelease. GitHub supplies the source `.zip` and `.tar.gz` downloads.
+```yaml
+MARKETING_VERSION: "0.2.0"
+CURRENT_PROJECT_VERSION: "3"
+```
 
-## Ad-hoc DMG (pre-notarization)
+For every release:
 
-Until a Developer ID is available, each prerelease also ships an ad-hoc-signed
-DMG so the app runs without building from source. The `Release` workflow builds
-it from the tagged source (the `dmg-release` job) and attaches:
+1. Increase both values and run `./script/generate_project.sh`.
+2. Add user-facing notes at `Docs/Releases/<version>.md`.
+3. Update `CHANGELOG.md` and any version-specific documentation.
+4. Merge to `main` and wait for every CI job to pass.
+5. Create an annotated `v<version>` tag on that `main` commit and push it.
 
-- `Sol-<version>-macOS.dmg` — Sol.app, deep ad-hoc signed, with an
-  `/Applications` symlink for drag install.
-- `Sol-<version>-macOS.dmg.sha256` — checksum.
-- `dmg-signing.sh` — self-contained script a user runs after dragging Sol.app
-  to `/Applications`, if they prefer it over "Open Anyway".
+The Release workflow rejects a tag that does not match `MARKETING_VERSION`,
+lacks notes, or points outside `main`.
 
-The DMG is not notarized, so macOS blocks it on first launch. Users approve it
-via System Settings → Privacy & Security → **Open Anyway**, or by running
-`dmg-signing.sh`, which re-applies the ad-hoc signature across the bundle and
-clears the quarantine attribute. This is the interim path, not a replacement
-for Developer ID + notarization.
+## Developer Preview DMG
 
-Build and verify it locally (no Apple identity required):
+Pushing the tag validates the source, builds and inspects the DMG, then creates
+or updates a GitHub prerelease with all three assets together:
+
+- `Sol-<version>-macOS.dmg`
+- `Sol-<version>-macOS.dmg.sha256`
+- `dmg-signing.sh`
+
+The app and every nested executable/framework/extension are ad-hoc signed
+innermost-first. `SolPublic.entitlements` enables Hardened Runtime with only the
+JIT/runtime exceptions needed by Sol Engine. The integration test mounts the
+image, validates those entitlements and the private runtime, deliberately
+removes a nested extension signature, runs the repair helper, and verifies the
+hierarchy again. A failed build never creates a new source-only release record.
+
+Build the same artifact locally before tagging:
 
 ```bash
-./script/build_dmg.sh                     # -> dist/Sol-<version>-macOS.dmg
+./script/build_dmg.sh
 ./script/test_dmg_release.sh dist/Sol-*.dmg
 ```
 
-## Notarized app download
+The preview is not notarized. Release notes and the README must tell users to
+approve the first launch through System Settings → Privacy & Security. Do not
+tell users to disable Gatekeeper globally.
 
-The app archive requires all of the following:
+## Updater requirements
 
-- A Developer ID Application certificate in the signing keychain
-- The matching Apple Developer team identifier
-- A working `notarytool` keychain profile
-- Provisioning for every capability and bundled extension
+The native updater considers a GitHub release installable only when it has both
+the DMG and an asset named exactly `<dmg-name>.sha256`. It compares semantic
+versions, downloads both assets over HTTPS, hashes the complete DMG, and opens
+the image only after a match.
 
-Build, export, notarize, staple, and validate the app with:
+Do not rename only one asset, upload an unverified replacement, or move the
+checksum into release prose. Updating an existing asset is allowed only when
+the matching sidecar is replaced in the same release operation.
+
+## Developer ID and notarization
+
+A normal trusted release requires:
+
+- Developer ID Application certificate
+- Matching Apple Developer team identifier
+- `notarytool` keychain profile
+- Provisioning for the main app and all extensions/capabilities
+
+Build, export, notarize, staple, and assess the archive with:
 
 ```bash
 SOL_DEVELOPMENT_TEAM=YOUR_TEAM_ID \
@@ -56,15 +79,9 @@ SOL_NOTARY_PROFILE=YOUR_NOTARY_PROFILE \
 ./script/package_release.sh
 ```
 
-After validating the resulting app on a clean Mac, attach the archive and its
-checksum to the existing release:
+After testing the stapled app on a clean Mac, attach the zip and checksum to the
+same tag. The in-app delivery path can move from verified DMG handoff to a
+signed appcast/in-place updater only after this tier exists.
 
-```bash
-VERSION=0.1.1
-gh release upload "v$VERSION" \
-  "dist/Sol-$VERSION-macOS.zip" \
-  "dist/Sol-$VERSION-macOS.zip.sha256"
-```
-
-Never upload a local debug build, an Apple Development-signed archive, private
-keys, provisioning profiles, games, firmware, or account data.
+Never publish Apple Development-signed builds, provisioning profiles, signing
+keys, games, firmware, title keys, account data, or local diagnostics.

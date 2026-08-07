@@ -26,7 +26,9 @@ SOL_APPLE_SIGNING=off ./script/build_and_run.sh --build
 swift test
 ```
 
-Run `./script/generate_project.sh` after editing `project.yml`. It needs
+The complete workflow, runtime layout, focused engine builds, and common fixes
+are in [`Docs/DEVELOPMENT.md`](Docs/DEVELOPMENT.md). Run
+`./script/generate_project.sh` after editing `project.yml`; generation needs
 [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`).
 
 ## Pull requests
@@ -36,6 +38,8 @@ Run `./script/generate_project.sh` after editing `project.yml`. It needs
 - Keep engine changes in `NativeHost` or the bundled `Vendor/Ryubing` source,
   and update the corresponding review patch under `script/patches`.
 - Add a regression test when a bug can be reproduced without protected content.
+- Run the public-source audit and full Xcode app build for packaging, runtime,
+  entitlement, or engine-boundary changes.
 - Describe what you tested on a fresh app launch and, for session changes,
   through launch, render, stop, and relaunch.
 - Do not commit engine build output, credentials, system files, game content,

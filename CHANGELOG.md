@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.2.0 — 2026-08-07
+
+- Added the first downloadable Sol DMG and a verified native GitHub updater.
+- Added native Library and Game Detail screens with exact-match high-resolution
+  artwork and fixed card clipping.
+- Fixed a shared-resource race in DLSM Spatial and kept source presentation
+  visible until the MetalFX output is proven healthy.
+- Added crash-resistant playtime checkpoints and bookmark-only, full-session
+  game-folder security scope.
+- Gave Sol its own engine-data directory with an explicit, non-destructive
+  importer for compatible existing data.
+- Added full engine/app CI, an App Sandbox audit build, and complete developer,
+  release, security, and artwork documentation.
+
 ## 0.1.1 — 2026-08-04
 
 - Included the complete patched Sol Engine source in the repository and GitHub

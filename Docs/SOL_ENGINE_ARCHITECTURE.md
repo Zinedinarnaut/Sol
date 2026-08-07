@@ -22,10 +22,13 @@ of unmanaged-callable entry points. The separate Native AOT bridge remains the
 discovery and compatibility boundary. Both bridges expose only C-compatible
 values, opaque handles, and callbacks; Swift never receives a managed object.
 
-The main Sol target is deliberately unsandboxed. Launching the bundled
-engine process, scanning an arbitrary game library, and updating Sol Engine's
-configuration are core features. Widgets and Finder extensions remain
-sandboxed and receive only the minimum App Group access they need.
+The standard Sol target is currently unsandboxed until the complete
+JIT/file/network path passes a real-game sandbox run. Engine data now lives in
+Sol's own Application Support directory, and compatible existing data is copied
+only through an explicit native import. The game library is bookmark-only and
+its security scope is retained for a full session. A separate signed sandbox
+audit build verifies the intended entitlement set; widgets and Finder
+extensions remain sandboxed. See [`SECURITY_MODEL.md`](SECURITY_MODEL.md).
 
 ## Current runtime
 
@@ -52,12 +55,13 @@ sandboxed and receive only the minimum App Group access they need.
 8. DLSM gives MoltenVK a sub-native presentation surface, exports that
    low-resolution texture and command queue through `VK_EXT_metal_objects`,
    and presents a full-resolution MetalFX result in a native overlay layer.
-   Spatial and Temporal are active today. Temporal prefers validated native
-   depth and motion when available, otherwise a Metal-only reconstruction
-   provider derives bounded motion and a reactive mask from frame history.
-   Versioned DLSM Frame ABI v2 can transport native depth, motion, jitter, and
-   camera data once a game-aware renderer provider supplies those semantics.
-   Frame Generation remains gated behind that stricter native contract.
+   Developer builds use Spatial as the clean baseline. Temporal accepts only
+   validated native depth/motion or an explicitly enabled research provider;
+   otherwise it falls back to Spatial. Versioned DLSM Frame ABI v2 can
+   transport depth, motion, jitter, timing, and camera data once a game-aware
+   renderer provider supplies those semantics. Frame Generation remains gated
+   behind that stricter native contract, and normal public launches disable
+   DLSM entirely.
 
 The engine and surface now share the Sol process, so Cocoa pointers never
 cross a process boundary. The Swift host owns their lifetime; the managed

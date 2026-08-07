@@ -1,6 +1,27 @@
 import SwiftUI
 import AppKit
 
+private enum LauncherSection: String, CaseIterable, Identifiable {
+    case home
+    case library
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .home: "Home"
+        case .library: "Library"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .home: "house"
+        case .library: "square.grid.2x2"
+        }
+    }
+}
+
 struct LauncherView: View {
     @ObservedObject var viewModel: LauncherViewModel
     @ObservedObject var controllerViewModel: ControllerManagerViewModel
@@ -15,6 +36,7 @@ struct LauncherView: View {
     @State private var backgroundFade: Double = 1.0
     @State private var canPlayFocusSound = false
     @State private var searchText = ""
+    @State private var section: LauncherSection = .home
 
     init(viewModel: LauncherViewModel, controllerViewModel: ControllerManagerViewModel) {
         self.viewModel = viewModel
@@ -56,47 +78,66 @@ struct LauncherView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .zIndex(3)
                 } else {
-                    backgroundLayer(size: size)
-                        .zIndex(0)
+                    if section == .home {
+                        backgroundLayer(size: size)
+                            .zIndex(0)
 
-                    let effectiveGamingMode = viewModel.isGamingMode || viewModel.isLaunchIsolationActive
-                    MetalBackgroundView(
-                        viewSize: size,
-                        focusIntensity: focusIntensity,
-                        scrollOffset: scrollOffset,
-                        focusPoint: focusPoint,
-                        backgroundImage: nil,
-                        backgroundVersion: 0,
-                        isGamingMode: effectiveGamingMode,
-                        isLaunchActive: viewModel.isLaunchIsolationActive
-                    )
-                    .blendMode(.screen)
-                    .opacity(0.62)
-                    .zIndex(1)
-                    .ignoresSafeArea()
-                    .allowsHitTesting(false)
+                        let effectiveGamingMode = viewModel.isGamingMode || viewModel.isLaunchIsolationActive
+                        MetalBackgroundView(
+                            viewSize: size,
+                            focusIntensity: focusIntensity,
+                            scrollOffset: scrollOffset,
+                            focusPoint: focusPoint,
+                            backgroundImage: nil,
+                            backgroundVersion: 0,
+                            isGamingMode: effectiveGamingMode,
+                            isLaunchActive: viewModel.isLaunchIsolationActive
+                        )
+                        .blendMode(.screen)
+                        .opacity(0.62)
+                        .zIndex(1)
+                        .ignoresSafeArea()
+                        .allowsHitTesting(false)
 
-                    LinearGradient(
-                        colors: viewModel.games.isEmpty
-                            ? [
-                                Color.black.opacity(0.4),
-                                Color.black.opacity(0.08),
-                                Color.clear,
-                            ]
-                            : [
-                                Color.black.opacity(0.78),
-                                Color.black.opacity(0.28),
-                                Color.clear,
-                            ],
-                        startPoint: .bottom,
-                        endPoint: .top
-                    )
-                    .ignoresSafeArea()
-                    .allowsHitTesting(false)
-                    .zIndex(1.5)
+                        LinearGradient(
+                            colors: viewModel.games.isEmpty
+                                ? [
+                                    Color.black.opacity(0.4),
+                                    Color.black.opacity(0.08),
+                                    Color.clear,
+                                ]
+                                : [
+                                    Color.black.opacity(0.78),
+                                    Color.black.opacity(0.28),
+                                    Color.clear,
+                                ],
+                            startPoint: .bottom,
+                            endPoint: .top
+                        )
+                        .ignoresSafeArea()
+                        .allowsHitTesting(false)
+                        .zIndex(1.5)
 
-                    homeContent(size: size, isGamingMode: effectiveGamingMode)
-                    .zIndex(2)
+                        homeContent(size: size, isGamingMode: effectiveGamingMode)
+                            .zIndex(2)
+                    } else {
+                        LibraryBrowserView(
+                            games: visibleGames,
+                            totalGameCount: viewModel.games.count,
+                            selectedGame: $viewModel.selectedGame,
+                            thumbnailService: viewModel.thumbnailService,
+                            isScanning: viewModel.isScanning,
+                            statusMessage: libraryStatusMessage,
+                            canLaunch: viewModel.canLaunchAnyGame,
+                            onLaunch: { viewModel.launchGame(withId: $0.id) },
+                            onRevealGame: viewModel.revealGameFile,
+                            onRevealMods: viewModel.revealModsDirectory,
+                            onRevealSDMods: viewModel.revealSDCardModsDirectory,
+                            onRevealGameData: viewModel.revealGameDataDirectory
+                        )
+                        .frame(width: size.width, height: size.height)
+                        .zIndex(2)
+                    }
                 }
             }
             .onAppear {
@@ -136,6 +177,9 @@ struct LauncherView: View {
         .task(id: viewModel.selectedGame?.id) {
             await updateBackground()
         }
+        .task {
+            await viewModel.updateService.checkForUpdates()
+        }
         .animation(.snappy(duration: 0.25), value: viewModel.isLaunching)
         .sheet(isPresented: $viewModel.isAmiiboPickerPresented) {
             AmiiboPickerView(viewModel: viewModel)
@@ -143,7 +187,8 @@ struct LauncherView: View {
         .toolbar {
             LauncherToolbar(
                 viewModel: viewModel,
-                searchText: $searchText
+                searchText: $searchText,
+                section: $section
             )
         }
         .userActivity("com.solemu.app.game", isActive: viewModel.selectedGame != nil) { activity in
@@ -203,7 +248,7 @@ struct LauncherView: View {
                     onRevealGameData: viewModel.revealGameDataDirectory
                 )
                 .frame(maxWidth: .infinity)
-                .frame(height: 304)
+                .frame(height: 326)
                 .padding(.horizontal, 20)
                 .padding(.bottom, 16)
             }
@@ -511,11 +556,19 @@ struct LauncherView: View {
 private struct LauncherToolbar: ToolbarContent {
     @ObservedObject var viewModel: LauncherViewModel
     @Binding var searchText: String
+    @Binding var section: LauncherSection
 
     @ToolbarContentBuilder
     var body: some ToolbarContent {
         if #available(macOS 26.0, *) {
             if !viewModel.isLaunching {
+                ToolbarItem(
+                    id: "sol.library.section",
+                    placement: .navigation
+                ) {
+                    sectionPicker
+                }
+
                 ToolbarItem(
                     id: "sol.library.search",
                     placement: .automatic
@@ -561,6 +614,8 @@ private struct LauncherToolbar: ToolbarContent {
 
             ToolbarItemGroup(placement: .primaryAction) {
                 if !viewModel.isLaunching {
+                    UpdateToolbarButton(service: viewModel.updateService)
+
                     Button(action: viewModel.rescan) {
                         Label(
                             viewModel.isScanning ? "Scanning…" : "Rescan Library",
@@ -576,6 +631,10 @@ private struct LauncherToolbar: ToolbarContent {
             }
         } else {
             if !viewModel.isLaunching {
+                ToolbarItem(placement: .navigation) {
+                    sectionPicker
+                }
+
                 ToolbarItem(placement: .principal) {
                     librarySearchField
                 }
@@ -603,6 +662,8 @@ private struct LauncherToolbar: ToolbarContent {
                         Label("Stop", systemImage: "stop.fill")
                     }
                 } else {
+                    UpdateToolbarButton(service: viewModel.updateService)
+
                     Button(action: viewModel.rescan) {
                         Label(
                             viewModel.isScanning ? "Scanning…" : "Rescan Library",
@@ -624,6 +685,56 @@ private struct LauncherToolbar: ToolbarContent {
         )
         .frame(minWidth: 360, idealWidth: 460, maxWidth: 540)
         .layoutPriority(1)
+    }
+
+    private var sectionPicker: some View {
+        Picker("View", selection: $section) {
+            ForEach(LauncherSection.allCases) { section in
+                Label(section.title, systemImage: section.systemImage)
+                    .tag(section)
+            }
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+        .frame(width: 170)
+        .help("Switch between Home and Library")
+    }
+}
+
+private struct UpdateToolbarButton: View {
+    @ObservedObject var service: GitHubUpdateService
+
+    var body: some View {
+        Group {
+            switch service.state {
+            case let .available(release):
+                Button {
+                    Task { await service.downloadAvailableUpdate() }
+                } label: {
+                    Label(
+                        "Update to \(release.version?.description ?? release.tagName)",
+                        systemImage: "arrow.down.circle.fill"
+                    )
+                    .labelStyle(.iconOnly)
+                }
+                .help("Download \(release.name ?? release.tagName) from GitHub")
+            case .downloading:
+                ProgressView()
+                    .controlSize(.small)
+                    .help("Downloading and verifying the Sol update")
+            case let .ready(release, _):
+                Button(action: service.openReadyUpdate) {
+                    Label(
+                        "Open \(release.version?.description ?? release.tagName) Installer",
+                        systemImage: "shippingbox.fill"
+                    )
+                    .labelStyle(.iconOnly)
+                }
+                .help("Open the verified Sol disk image")
+            default:
+                EmptyView()
+            }
+        }
     }
 }
 

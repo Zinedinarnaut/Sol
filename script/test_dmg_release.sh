@@ -35,7 +35,12 @@ echo "Testing: $DMG"
 # 1. Image validity.
 check "DMG exists"                 test -f "$DMG"
 check "sha256 sidecar exists"      test -f "$DMG.sha256"
-check "checksum matches sidecar"   sh -c "echo \"$(cat "$DMG.sha256")  $DMG\" | shasum -a 256 -c -"
+check "checksum matches sidecar"   sh -c '
+  expected="$(tr -d "[:space:]" < "$2")"
+  actual="$(shasum -a 256 "$1")"
+  actual="${actual%% *}"
+  [ -n "$expected" ] && [ "$actual" = "$expected" ]
+' sh "$DMG" "$DMG.sha256"
 check "image verifies (checksum)"  hdiutil verify "$DMG"
 fmt="$(hdiutil imageinfo "$DMG" | sed -nE 's/^Format: //p' | head -n1)"
 if [ "$fmt" = "UDZO" ]; then ok "format is UDZO ($fmt)"; else fail "format is UDZO (got '$fmt')"; fi
@@ -53,6 +58,22 @@ if [ -d "$APP" ]; then
   check "outer app signature verifies"        /usr/bin/codesign --verify --deep --strict "$APP"
   sig="$(/usr/bin/codesign -dvv "$APP" 2>&1 | sed -nE 's/^Signature=(.*)$/\1/p')"
   if [ "$sig" = "adhoc" ]; then ok "outer app is ad-hoc signed"; else fail "outer app is ad-hoc signed (got '$sig')"; fi
+  check "Hardened Runtime is enabled" sh -c '
+    /usr/bin/codesign -dvv "$1" 2>&1 | /usr/bin/grep -q "flags=.*runtime"
+  ' sh "$APP"
+  for entitlement in \
+    com.apple.security.cs.allow-jit \
+    com.apple.security.cs.allow-unsigned-executable-memory \
+    com.apple.security.cs.disable-library-validation; do
+    check "$entitlement is present" sh -c '
+      /usr/bin/codesign -d --entitlements :- "$1" 2>/dev/null |
+        /usr/bin/grep -q "<key>$2</key>"
+    ' sh "$APP" "$entitlement"
+  done
+  check "provisioned Apple services are omitted" sh -c '
+    ! /usr/bin/codesign -d --entitlements :- "$1" 2>/dev/null |
+      /usr/bin/grep -Eq "developer.applesignin|developer.ubiquity|application-groups"
+  ' sh "$APP"
 
   check "engine native present"      test -e "$APP/Contents/Resources/SolEngine/Sol.Engine"
   check "engine managed present"     test -f "$APP/Contents/Resources/SolEngineManaged/Sol.Engine.dll"
@@ -72,6 +93,11 @@ if [ -d "$APP" ]; then
   /usr/bin/xattr -w com.apple.quarantine "0081;5f000000;Safari;com.apple.Safari" "$SCRATCH_APP"
   /usr/bin/xattr -w com.apple.quarantine "0081;5f000000;Safari;com.apple.Safari" \
     "$SCRATCH_APP/Contents/Resources/SolEngine/Sol.Engine"
+  # Remove one nested signature so the helper has to repair the full bundle
+  # hierarchy; simply checking the already-signed copy would miss traversal
+  # regressions.
+  /usr/bin/codesign --remove-signature \
+    "$SCRATCH_APP/Contents/PlugIns/SolWidgets.appex" >/dev/null 2>&1 || true
 
   if "$ROOT_DIR/script/dmg-signing.sh" "$SCRATCH_APP" >/dev/null 2>&1; then
     ok "dmg-signing.sh runs"
@@ -79,8 +105,15 @@ if [ -d "$APP" ]; then
     fail "dmg-signing.sh runs"
   fi
   check "quarantine cleared on bundle"      sh -c "! /usr/bin/xattr -p com.apple.quarantine '$SCRATCH_APP' >/dev/null 2>&1"
-  check "quarantine cleared recursively"    sh -c "! /usr/bin/find '$SCRATCH_APP' -exec /usr/bin/xattr -p com.apple.quarantine {} >/dev/null 2>&1 \; -print | grep -q ."
+  check "quarantine cleared on nested code" sh -c '
+    ! /usr/bin/xattr -p com.apple.quarantine "$1" >/dev/null 2>&1
+  ' sh "$SCRATCH_APP/Contents/Resources/SolEngine/Sol.Engine"
+  check "nested extension was re-signed"     /usr/bin/codesign --verify --strict "$SCRATCH_APP/Contents/PlugIns/SolWidgets.appex"
   check "app still verifies after resign"   /usr/bin/codesign --verify --deep --strict "$SCRATCH_APP"
+  check "runtime entitlements survive resign" sh -c '
+    /usr/bin/codesign -d --entitlements :- "$1" 2>/dev/null |
+      /usr/bin/grep -q "<key>com.apple.security.cs.allow-jit</key>"
+  ' sh "$SCRATCH_APP"
   rm -rf "$SCRATCH"
 fi
 

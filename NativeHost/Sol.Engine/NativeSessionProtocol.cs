@@ -304,7 +304,7 @@ internal static class NativeSessionProtocol
                 HeadlessRyujinx.SetNativePaused(false);
                 break;
             case "stop":
-                NativePlaytimeTracker.Suspend();
+                PublishPlaytimeUpdate(NativePlaytimeTracker.Suspend());
                 Publish(new NativeSessionEvent
                 {
                     Event = "session.state",
@@ -405,7 +405,7 @@ internal static class NativeSessionProtocol
 
     private static void PublishSnapshot(NativeSessionSnapshot snapshot, bool force = false)
     {
-        NativePlaytimeTracker.Observe(snapshot);
+        PublishPlaytimeUpdate(NativePlaytimeTracker.Observe(snapshot));
 
         if (!force && _lastSnapshot == snapshot)
         {
@@ -427,7 +427,12 @@ internal static class NativeSessionProtocol
 
     internal static void CompletePlaytimeTracking()
     {
-        if (NativePlaytimeTracker.Complete() is not { } update)
+        PublishPlaytimeUpdate(NativePlaytimeTracker.Complete());
+    }
+
+    private static void PublishPlaytimeUpdate(NativePlaytimeUpdate? update)
+    {
+        if (update is not { } value)
         {
             return;
         }
@@ -435,10 +440,10 @@ internal static class NativeSessionProtocol
         Publish(new NativeSessionEvent
         {
             Event = "playtime.updated",
-            TitleId = update.TitleId,
-            PlaytimeSeconds = update.TotalSeconds,
-            LastPlayedUtc = update.LastPlayedUtc.ToString("O"),
-            Message = $"Saved {TimeSpan.FromSeconds(update.TotalSeconds):c} of playtime.",
+            TitleId = value.TitleId,
+            PlaytimeSeconds = value.TotalSeconds,
+            LastPlayedUtc = value.LastPlayedUtc.ToString("O"),
+            Message = $"Saved {TimeSpan.FromSeconds(value.TotalSeconds):c} of playtime.",
         });
     }
 

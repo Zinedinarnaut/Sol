@@ -13,10 +13,13 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  source-release:
-    name: Publish source prerelease
+  validate-release:
+    name: Validate release
     runs-on: macos-26
     timeout-minutes: 25
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      notes: ${{ steps.release.outputs.notes }}
 
     steps:
       - name: Check out tagged source
@@ -69,39 +72,12 @@ jobs:
       - name: Run tests
         run: swift test
 
-      - name: Publish or update GitHub prerelease
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_NOTES: ${{ steps.release.outputs.notes }}
-          RELEASE_TAG: ${{ github.ref_name }}
-          RELEASE_VERSION: ${{ steps.release.outputs.version }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          title="Sol $RELEASE_VERSION — Developer Preview"
-          if gh release view "$RELEASE_TAG" \
-            --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release edit "$RELEASE_TAG" \
-              --repo "$GITHUB_REPOSITORY" \
-              --title "$title" \
-              --notes-file "$RELEASE_NOTES" \
-              --prerelease
-          else
-            gh release create "$RELEASE_TAG" \
-              --repo "$GITHUB_REPOSITORY" \
-              --verify-tag \
-              --title "$title" \
-              --notes-file "$RELEASE_NOTES" \
-              --prerelease
-          fi
-
   dmg-release:
     name: Build and attach ad-hoc DMG
     # Sol supports macOS 15 minimum, so build the shippable DMG on macos-15 —
     # this also gates the floor-OS build.
     runs-on: macos-15
-    needs: source-release
+    needs: validate-release
     timeout-minutes: 45
 
     steps:
@@ -119,12 +95,32 @@ jobs:
       - name: Verify DMG
         run: ./script/test_dmg_release.sh dist/Sol-*.dmg
 
-      - name: Attach DMG, checksum, and signing script
+      - name: Publish complete developer preview
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_NOTES: ${{ needs.validate-release.outputs.notes }}
+          RELEASE_VERSION: ${{ needs.validate-release.outputs.version }}
         run: |
           set -euo pipefail
-          gh release upload "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --clobber \
-            dist/Sol-*.dmg \
-            dist/Sol-*.dmg.sha256 \
-            script/dmg-signing.sh
+
+          title="Sol $RELEASE_VERSION — Developer Preview"
+          assets=(dist/Sol-*.dmg dist/Sol-*.dmg.sha256 script/dmg-signing.sh)
+          if gh release view "$GITHUB_REF_NAME" \
+            --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit "$GITHUB_REF_NAME" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "$title" \
+              --notes-file "$RELEASE_NOTES" \
+              --prerelease
+            gh release upload "$GITHUB_REF_NAME" \
+              --repo "$GITHUB_REPOSITORY" \
+              --clobber "${assets[@]}"
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              --repo "$GITHUB_REPOSITORY" \
+              --verify-tag \
+              --title "$title" \
+              --notes-file "$RELEASE_NOTES" \
+              --prerelease \
+              "${assets[@]}"
+          fi

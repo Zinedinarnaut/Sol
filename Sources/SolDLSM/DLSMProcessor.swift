@@ -58,7 +58,12 @@ final class DLSMProcessor: @unchecked Sendable {
 
     private let lock = NSLock()
     private let telemetryLock = NSLock()
-    private let temporalInFlightGate = DispatchSemaphore(value: 1)
+    // MetalFX objects and the compatibility downsample texture are shared by
+    // successive frames. Keep exactly one reconstruction command buffer in
+    // flight so a new frame cannot overwrite resources the GPU is still
+    // reading from the previous frame.
+    private let presentationInFlightGate = DispatchSemaphore(value: 1)
+    private let presentationStateLock = NSLock()
     private let outputLayer: CAMetalLayer
     private let logger = Logger(subsystem: "com.solemu.app", category: "DLSM")
     private let temporalGPUTiming = DLSMGPUTimingAccumulator()
@@ -96,6 +101,9 @@ final class DLSMProcessor: @unchecked Sendable {
     private var didLogReconstructedTemporalAcceptance = false
     private var didLogMissingCamera = false
     private var didLogCommandBufferFailure = false
+    private var consecutivePresentationFailures = 0
+    private var presentationIsAvailable = false
+    private var presentationAvailabilityHandler: ((Bool) -> Void)?
 
     init(outputLayer: CAMetalLayer) {
         self.outputLayer = outputLayer
@@ -126,8 +134,8 @@ final class DLSMProcessor: @unchecked Sendable {
 
     func beginSession(captureGroup: String?) {
         lock.withLock {
-            temporalInFlightGate.wait()
-            defer { temporalInFlightGate.signal() }
+            presentationInFlightGate.wait()
+            defer { presentationInFlightGate.signal() }
             cachedCommandQueues.removeAll(keepingCapacity: true)
             cachedTextures.removeAll(keepingCapacity: true)
             acceptsFrames = true
@@ -137,19 +145,29 @@ final class DLSMProcessor: @unchecked Sendable {
             temporalInputProvider?.resetHistory()
             trainingCapture?.beginSession(captureGroup: captureGroup)
         }
+        resetPresentationAvailability()
     }
 
     func endSession() {
         lock.withLock {
             acceptsFrames = false
-            temporalInFlightGate.wait()
-            defer { temporalInFlightGate.signal() }
+            presentationInFlightGate.wait()
+            defer { presentationInFlightGate.signal() }
             lastFrameID = nil
             cachedCommandQueues.removeAll(keepingCapacity: true)
             cachedTextures.removeAll(keepingCapacity: true)
             trainingCapture?.endSession()
             invalidatePipeline()
         }
+        resetPresentationAvailability()
+    }
+
+    func setPresentationAvailabilityHandler(_ handler: ((Bool) -> Void)?) {
+        let currentAvailability = presentationStateLock.withLock {
+            presentationAvailabilityHandler = handler
+            return presentationIsAvailable
+        }
+        handler?(currentAvailability)
     }
 
     func configure(_ configuration: DLSMConfiguration, outputSize: CGSize) {
@@ -161,10 +179,10 @@ final class DLSMProcessor: @unchecked Sendable {
             }
 
             // A resize or mode change can replace the scaler and every
-            // reconstruction texture. Wait until the last Temporal command
-            // buffer has stopped using them before invalidating the pipeline.
-            temporalInFlightGate.wait()
-            defer { temporalInFlightGate.signal() }
+            // reconstruction texture. Wait until the last DLSM command buffer
+            // has stopped using them before invalidating the pipeline.
+            presentationInFlightGate.wait()
+            defer { presentationInFlightGate.signal() }
 
             if configurationChanged {
                 self.configuration = configuration
@@ -180,7 +198,7 @@ final class DLSMProcessor: @unchecked Sendable {
     }
 
     func present(frame: DLSMFrameInfoV2) -> Bool {
-        lock.withLock {
+        let didEnqueuePresentation = lock.withLock {
             guard acceptsFrames,
                   configuration.isEnabled,
                   frame.flags.contains(.color),
@@ -201,14 +219,12 @@ final class DLSMProcessor: @unchecked Sendable {
                 return false
             }
 
-            let temporalGate = configuration.mode == .temporal
-                ? temporalInFlightGate
-                : nil
-            temporalGate?.wait()
-            var didEnqueueTemporalWork = false
+            let presentationGate = presentationInFlightGate
+            presentationGate.wait()
+            var didEnqueueGPUWork = false
             defer {
-                if temporalGate != nil, !didEnqueueTemporalWork {
-                    temporalGate?.signal()
+                if !didEnqueueGPUWork {
+                    presentationGate.signal()
                 }
             }
 
@@ -358,9 +374,9 @@ final class DLSMProcessor: @unchecked Sendable {
                     dimensions: dimensions,
                     inputs: temporalInputs,
                     resetHistory: frameDiscontinuity,
-                    completionGate: temporalGate
+                    completionGate: presentationGate
                 )
-                didEnqueueTemporalWork = didPresent
+                didEnqueueGPUWork = didPresent
                 return didPresent
             }
 
@@ -390,16 +406,20 @@ final class DLSMProcessor: @unchecked Sendable {
                 return false
             }
 
-            if let temporalGate {
-                commandBuffer.addCompletedHandler { _ in
-                    temporalGate.signal()
-                }
-            }
+            installPresentationCompletion(
+                on: commandBuffer,
+                completionGate: presentationGate
+            )
             commandBuffer.present(drawable)
             commandBuffer.commit()
-            didEnqueueTemporalWork = temporalGate != nil
+            didEnqueueGPUWork = true
             return true
         }
+
+        if !didEnqueuePresentation {
+            recordPresentationSubmissionFailure()
+        }
+        return didEnqueuePresentation
     }
 
     private func consumeDiscontinuity(for frame: DLSMFrameInfoV2) -> Bool {
@@ -798,11 +818,10 @@ final class DLSMProcessor: @unchecked Sendable {
         ) else {
             return false
         }
-        if let completionGate {
-            currentCommandBuffer.addCompletedHandler { _ in
-                completionGate.signal()
-            }
-        }
+        installPresentationCompletion(
+            on: currentCommandBuffer,
+            completionGate: completionGate
+        )
         commandBuffer.present(firstDrawable)
         currentCommandBuffer.present(
             currentDrawable,
@@ -831,11 +850,10 @@ final class DLSMProcessor: @unchecked Sendable {
         ) else {
             return false
         }
-        if let completionGate {
-            commandBuffer.addCompletedHandler { _ in
-                completionGate.signal()
-            }
-        }
+        installPresentationCompletion(
+            on: commandBuffer,
+            completionGate: completionGate
+        )
         commandBuffer.present(drawable)
         commandBuffer.commit()
         return true
@@ -971,6 +989,65 @@ final class DLSMProcessor: @unchecked Sendable {
             )
         }
         lastTemporalFallbackReason = reason
+    }
+
+    private func installPresentationCompletion(
+        on commandBuffer: any MTLCommandBuffer,
+        completionGate: DispatchSemaphore?
+    ) {
+        commandBuffer.addCompletedHandler { [weak self] completedBuffer in
+            // Unblock configuration and the next frame before publishing UI
+            // state. The UI callback may schedule work back onto the main
+            // actor and must never hold the renderer teardown path hostage.
+            completionGate?.signal()
+            self?.recordPresentationCompletion(completedBuffer)
+        }
+    }
+
+    private func recordPresentationCompletion(
+        _ commandBuffer: any MTLCommandBuffer
+    ) {
+        let isSuccessful = commandBuffer.status == .completed
+        let handler: ((Bool) -> Void)? = presentationStateLock.withLock {
+            if isSuccessful {
+                consecutivePresentationFailures = 0
+                guard !presentationIsAvailable else { return nil }
+                presentationIsAvailable = true
+                return presentationAvailabilityHandler
+            }
+
+            consecutivePresentationFailures += 1
+            guard consecutivePresentationFailures >= 3,
+                  presentationIsAvailable else {
+                return nil
+            }
+            presentationIsAvailable = false
+            return presentationAvailabilityHandler
+        }
+        handler?(isSuccessful)
+    }
+
+    private func recordPresentationSubmissionFailure() {
+        let handler: ((Bool) -> Void)? = presentationStateLock.withLock {
+            consecutivePresentationFailures += 1
+            guard consecutivePresentationFailures >= 3,
+                  presentationIsAvailable else {
+                return nil
+            }
+            presentationIsAvailable = false
+            return presentationAvailabilityHandler
+        }
+        handler?(false)
+    }
+
+    private func resetPresentationAvailability() {
+        let handler: ((Bool) -> Void)? = presentationStateLock.withLock {
+            consecutivePresentationFailures = 0
+            let shouldPublish = presentationIsAvailable
+            presentationIsAvailable = false
+            return shouldPublish ? presentationAvailabilityHandler : nil
+        }
+        handler?(false)
     }
 
     private func installCompletionTelemetry(

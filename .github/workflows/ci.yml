@@ -23,3 +23,27 @@ jobs:
 
       - name: Run tests
         run: swift test
+
+  engine-and-app:
+    name: Sol Engine and app build
+    runs-on: macos-26
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Install project-local .NET SDK
+        run: ./script/install_dotnet_sdk.sh
+
+      - name: Build bundled engine and native macOS app
+        env:
+          SOL_APPLE_SIGNING: "off"
+        run: ./script/build_and_run.sh --build
+
+      - name: Check release helpers
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n script/*.sh
+          plutil -lint Sol.entitlements SolPublic.entitlements SolSandbox.entitlements

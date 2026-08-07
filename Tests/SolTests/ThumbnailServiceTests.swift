@@ -4,6 +4,83 @@ import XCTest
 @testable import Sol
 
 final class ThumbnailServiceTests: XCTestCase, @unchecked Sendable {
+    func testArtworkProviderPrefersExactTitleIDOverSearchOrder() async throws {
+        let title = "Exact Artwork Match \(UUID().uuidString)"
+        let titleID = String(
+            UUID().uuidString.replacingOccurrences(of: "-", with: "").prefix(16)
+        ).uppercased()
+        let imageData = try makeJPEG(width: 600, height: 840)
+        let searchData = Data(
+            """
+            {
+              "response": {
+                "docs": [
+                  {
+                    "title": "A Similar Result",
+                    "application_id_s": "0100000000000000",
+                    "image_url": "https://www.nintendo.com/media/wrong.jpg"
+                  },
+                  {
+                    "title": "The Exact Result",
+                    "application_id_s": "\(titleID)",
+                    "image_url": "https://www.nintendo.com/media/correct.jpg"
+                  }
+                ]
+              }
+            }
+            """.utf8
+        )
+
+        MockBackgroundURLProtocol.responseProvider = { request in
+            let data: Data
+            switch request.url?.host {
+            case "api.nlib.cc":
+                throw URLError(.resourceUnavailable)
+            case "search.nintendo-europe.com":
+                data = searchData
+            case "www.nintendo.com":
+                XCTAssertEqual(request.url?.path, "/media/correct.jpg")
+                data = imageData
+            default:
+                throw URLError(.unsupportedURL)
+            }
+            let response = try XCTUnwrap(
+                HTTPURLResponse(
+                    url: request.url!,
+                    statusCode: 200,
+                    httpVersion: "HTTP/1.1",
+                    headerFields: [
+                        "Content-Type": request.url?.host == "www.nintendo.com"
+                            ? "image/jpeg"
+                            : "application/json"
+                    ]
+                )
+            )
+            return (response, data)
+        }
+        defer {
+            MockBackgroundURLProtocol.responseProvider = nil
+            ImageCache.shared.remove(forKey: titleID)
+        }
+
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [MockBackgroundURLProtocol.self]
+        let service = ThumbnailService(session: URLSession(configuration: configuration))
+        let game = Game(
+            id: titleID,
+            title: title,
+            titleId: titleID,
+            fileURL: URL(fileURLWithPath: "/tmp/\(title).nsp"),
+            hoursPlayed: 0,
+            lastPlayed: nil
+        )
+
+        let image = await service.fetchThumbnail(for: game)
+
+        XCTAssertEqual(image?.size.width, 600)
+        XCTAssertEqual(image?.size.height, 840)
+    }
+
     func testFetchBackgroundUpgradesPlatformPreviewToOriginalArtwork() async throws {
         let title = "Background Test \(UUID().uuidString)"
         let imageData = try makeJPEG(width: 2_000, height: 1_000)

@@ -126,6 +126,15 @@ private struct ProfilePopoverView: View {
 
             HStack(spacing: 6) {
                 Button {
+                    Task {
+                        await viewModel.updateService.checkForUpdates(force: true)
+                    }
+                } label: {
+                    Label("Updates", systemImage: "arrow.down.circle")
+                }
+                .disabled(viewModel.updateService.isDownloading)
+
+                Button {
                     viewModel.refreshProfiles()
                 } label: {
                     Label("Refresh", systemImage: "arrow.clockwise")

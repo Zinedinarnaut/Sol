@@ -6,9 +6,10 @@ struct SolEnginePaths {
 }
 
 final class SolEnginePathResolver {
-    // Sol Engine still consumes the upstream on-disk format. Keeping this
-    // compatibility path avoids moving keys, firmware, saves, and DLC data.
-    private static let upstreamDataDirectoryName = "Ryujinx"
+    // Sol Engine consumes the compatible on-disk format inside a Sol-owned
+    // location. Never probe another application's data directory on startup;
+    // legacy data is copied only through the explicit native import flow.
+    static let dataDirectoryName = "Sol"
 
     func resolveBundledNativeCore(in bundle: Bundle = .main) -> SolEnginePaths? {
         guard let resourceURL = bundle.resourceURL else { return nil }
@@ -31,6 +32,6 @@ final class SolEnginePathResolver {
     private func defaultNativeDataDirectory() -> URL? {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
             .first?
-            .appendingPathComponent(Self.upstreamDataDirectoryName, isDirectory: true)
+            .appendingPathComponent(Self.dataDirectoryName, isDirectory: true)
     }
 }

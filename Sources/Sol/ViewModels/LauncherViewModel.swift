@@ -41,6 +41,7 @@ final class LauncherViewModel: ObservableObject {
     let solEngineConfiguration: SolEngineConfigurationStore
     let iCloudProfileSync: ICloudProfileSyncService
     let appleAccount: AppleAccountService
+    let updateService: GitHubUpdateService
     let embeddedRenderView = SolEngineRenderView()
 
     private let pathResolver: SolEnginePathResolver
@@ -48,6 +49,7 @@ final class LauncherViewModel: ObservableObject {
     private let scannerService: GameScannerService
     private let embeddedRuntime: SolEngineEmbeddedRuntime
     private let backendService: SolEngineBackendService
+    private let dataMigrationService = SolEngineDataMigrationService()
     private let gamingModeService = GamingModeService()
     private let notificationService = NotificationService()
     private let spotlightService = SpotlightIndexService()
@@ -61,6 +63,7 @@ final class LauncherViewModel: ObservableObject {
     private var isAttachingEmbeddedSurface = false
     private var stopWatchdogTask: Task<Void, Never>?
     private var playtimeRefreshTask: Task<Void, Never>?
+    private var activeGamesDirectoryAccess: SettingsStore.ScopedAccess?
     private var pendingCloudProfileID: String?
     var onFullscreenRequest: ((Bool) -> Void)?
 
@@ -74,7 +77,8 @@ final class LauncherViewModel: ObservableObject {
         thumbnailService: ThumbnailService = ThumbnailService(),
         solEngineConfiguration: SolEngineConfigurationStore? = nil,
         iCloudProfileSync: ICloudProfileSyncService? = nil,
-        appleAccount: AppleAccountService? = nil
+        appleAccount: AppleAccountService? = nil,
+        updateService: GitHubUpdateService? = nil
     ) {
         self.settings = settings
         self.pathResolver = pathResolver
@@ -86,6 +90,7 @@ final class LauncherViewModel: ObservableObject {
         self.solEngineConfiguration = solEngineConfiguration ?? SolEngineConfigurationStore()
         self.iCloudProfileSync = iCloudProfileSync ?? ICloudProfileSyncService()
         self.appleAccount = appleAccount ?? AppleAccountService()
+        self.updateService = updateService ?? GitHubUpdateService()
 
         settings.$gamesDirectory
             .dropFirst()
@@ -109,6 +114,12 @@ final class LauncherViewModel: ObservableObject {
             .store(in: &cancellables)
 
         self.appleAccount.objectWillChange
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+            .store(in: &cancellables)
+
+        self.updateService.objectWillChange
             .sink { [weak self] _ in
                 self?.objectWillChange.send()
             }
@@ -159,7 +170,11 @@ final class LauncherViewModel: ObservableObject {
     }
 
     var canLaunch: Bool {
-        solEngineValidation.isValid && gamesValidation.isValid && selectedGame != nil && !isLaunching
+        canLaunchAnyGame && selectedGame != nil
+    }
+
+    var canLaunchAnyGame: Bool {
+        solEngineValidation.isValid && gamesValidation.isValid && !isLaunching
     }
 
     var selectedProfile: SolEngineProfile? {
@@ -176,8 +191,13 @@ final class LauncherViewModel: ObservableObject {
 
     func launchSelectedGame() {
         guard canLaunch, let game = selectedGame else { return }
+        guard retainGamesDirectoryAccess(for: game.fileURL) else {
+            appendSystem("Choose the games folder again in Settings to grant Sol access.")
+            return
+        }
         guard FileManager.default.fileExists(atPath: game.fileURL.path) else {
             appendSystem("Game file not found: \(game.fileURL.lastPathComponent)")
+            releaseGamesDirectoryAccess()
             return
         }
         startSolEngine(
@@ -400,6 +420,43 @@ final class LauncherViewModel: ObservableObject {
 
     func installFirmware(from url: URL) {
         runBackendOperation(.installFirmware(url))
+    }
+
+    func importSolEngineData(from sourceURL: URL) {
+        guard !isLaunching, !isBackendOperationRunning,
+              let destinationURL = solEnginePaths?.dataDirectoryURL else {
+            return
+        }
+
+        isBackendOperationRunning = true
+        backendStatus.errorMessage = nil
+        statusMessage = "Importing existing engine data…"
+
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                let result = try await dataMigrationService.importData(
+                    from: sourceURL,
+                    to: destinationURL
+                )
+                isBackendOperationRunning = false
+                solEngineConfiguration.connect(to: destinationURL)
+                refreshBackendStatus()
+                refreshPlaytimeMetadata()
+                scanGamesIfPossible(force: true)
+
+                let skipped = result.skippedItemCount == 0
+                    ? ""
+                    : " \(result.skippedItemCount) existing item(s) were kept."
+                statusMessage =
+                    "Imported \(result.importedItemCount) engine-data item(s)." + skipped
+            } catch {
+                isBackendOperationRunning = false
+                backendStatus.errorMessage = error.localizedDescription
+                statusMessage = "Engine data was not imported."
+                appendSystem("Sol Engine data import: \(error.localizedDescription)")
+            }
+        }
     }
 
     func scanContent() {
@@ -886,10 +943,31 @@ final class LauncherViewModel: ObservableObject {
         isLaunchIsolationActive = false
         session = SolEngineSessionSnapshot()
         launchActivity = SolEngineLaunchActivity()
+        releaseGamesDirectoryAccess()
         refreshPlaytimeMetadata()
         if isGamingMode {
             onFullscreenRequest?(false)
         }
+    }
+
+    private func retainGamesDirectoryAccess(for gameURL: URL) -> Bool {
+        releaseGamesDirectoryAccess()
+        guard let access = settings.beginAccessing(.games) else { return false }
+
+        let rootPath = access.url.standardizedFileURL.path
+        let gamePath = gameURL.standardizedFileURL.path
+        guard gamePath == rootPath || gamePath.hasPrefix(rootPath + "/") else {
+            access.stop()
+            return false
+        }
+
+        activeGamesDirectoryAccess = access
+        return true
+    }
+
+    private func releaseGamesDirectoryAccess() {
+        activeGamesDirectoryAccess?.stop()
+        activeGamesDirectoryAccess = nil
     }
 
     private func refreshPlaytimeMetadata(preferredTitleID: String? = nil) {

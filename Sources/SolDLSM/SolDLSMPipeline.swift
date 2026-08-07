@@ -63,6 +63,15 @@ public final class SolDLSMPipeline: @unchecked Sendable {
         processor.endSession()
     }
 
+    /// Publishes whether DLSM has a completed presentation stream. The native
+    /// host uses this to keep the original renderer visible until the first
+    /// reconstructed frame and to fall back after repeated GPU failures.
+    public func setPresentationAvailabilityHandler(
+        _ handler: ((Bool) -> Void)?
+    ) {
+        processor.setPresentationAvailabilityHandler(handler)
+    }
+
     public func configure(
         _ configuration: DLSMConfiguration,
         outputSize: CGSize

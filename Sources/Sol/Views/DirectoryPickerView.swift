@@ -70,8 +70,10 @@ struct DirectoryPickerView: View {
                 activePanel = nil
             }
             guard response == .OK, let url = panel.url else { return }
-            path = url.path
+            // Persist the grant before publishing the path. Settings observers
+            // validate and scan immediately when `path` changes.
             onPickURL?(url)
+            path = url.path
         }
 
         let targetWindow = hostingWindow ?? NSApp.keyWindow ?? NSApp.mainWindow

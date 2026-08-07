@@ -89,6 +89,11 @@ final class SolEngineRenderView: NSView {
         sourceMetalLayer.anchorPoint = .zero
         layer?.addSublayer(sourceMetalLayer)
         layer?.addSublayer(outputMetalLayer)
+        dlsmPipeline.setPresentationAvailabilityHandler { [weak self] isAvailable in
+            DispatchQueue.main.async { [weak self] in
+                self?.setDLSMOutputAvailable(isAvailable)
+            }
+        }
         updateMetalLayerGeometry()
     }
 
@@ -232,11 +237,19 @@ final class SolEngineRenderView: NSView {
             return
         }
         dlsmConfiguration = configuration
+        if !configuration.isEnabled {
+            setDLSMOutputAvailable(false)
+        }
+        updateMetalLayerGeometry()
+    }
+
+    private func setDLSMOutputAvailable(_ isAvailable: Bool) {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        outputMetalLayer.isHidden = !configuration.isEnabled
+        // The source layer remains the truthful fallback. Do not cover it with
+        // a black or stale DLSM layer until Metal has completed an output frame.
+        outputMetalLayer.isHidden = !dlsmConfiguration.isEnabled || !isAvailable
         CATransaction.commit()
-        updateMetalLayerGeometry()
     }
 
     func notifyReadyIfPossible() {

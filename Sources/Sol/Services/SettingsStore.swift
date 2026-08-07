@@ -10,8 +10,6 @@ final class SettingsStore: ObservableObject {
         "com.sol.app",
         "com.ryjinx.launcher",
     ]
-    private let locator = GameDirectoryLocator()
-
     @Published var gamesDirectory: String {
         didSet { UserDefaults.standard.set(gamesDirectory, forKey: Keys.gamesDirectory) }
     }
@@ -96,10 +94,6 @@ final class SettingsStore: ObservableObject {
             )
         }
 
-        if gamesDirectory.isEmpty, let detected = locator.autoDetectGamesDirectory() {
-            self.gamesDirectory = detected
-        }
-
         applyLoginItemSetting(launchAtLogin)
     }
 
@@ -121,7 +115,6 @@ final class SettingsStore: ObservableObject {
 
         let migratedKeys = [
             Keys.gamesDirectory,
-            Keys.gamesDirectoryBookmark,
             Keys.launchAtLogin,
             Keys.backgroundCacheVersion,
             Keys.dlsmMode,
@@ -186,20 +179,32 @@ final class SettingsStore: ObservableObject {
         let path = gamesDirectory
         guard !path.isEmpty else { return nil }
 
-        let pathURL = URL(fileURLWithPath: path, isDirectory: true).standardizedFileURL
-        var isDirectory: ObjCBool = false
-        if FileManager.default.fileExists(atPath: pathURL.path, isDirectory: &isDirectory),
-           isDirectory.boolValue {
-            return ScopedAccess(url: pathURL, stop: {})
-        }
-
+        // Never fall back to probing a stored plain-text path. Apart from
+        // bypassing App Sandbox, that can trigger a broad Files & Folders
+        // permission prompt before the user has interacted with Sol. A stale
+        // bookmark instead makes the UI ask the user to choose the folder
+        // again through NSOpenPanel.
         guard let url = resolveBookmark(for: kind) else { return nil }
-        let needsStop = url.startAccessingSecurityScopedResource()
-        return ScopedAccess(url: url, stop: {
-            if needsStop {
-                url.stopAccessingSecurityScopedResource()
-            }
-        })
+        let pathURL = URL(fileURLWithPath: path, isDirectory: true)
+            .standardizedFileURL
+            .resolvingSymlinksInPath()
+        let bookmarkedURL = url.standardizedFileURL.resolvingSymlinksInPath()
+        guard bookmarkedURL.path == pathURL.path else { return nil }
+
+        let needsStop = bookmarkedURL.startAccessingSecurityScopedResource()
+        var isDirectory: ObjCBool = false
+        if FileManager.default.fileExists(atPath: bookmarkedURL.path, isDirectory: &isDirectory),
+           isDirectory.boolValue {
+            return ScopedAccess(url: bookmarkedURL, stop: {
+                if needsStop {
+                    bookmarkedURL.stopAccessingSecurityScopedResource()
+                }
+            })
+        }
+        if needsStop {
+            bookmarkedURL.stopAccessingSecurityScopedResource()
+        }
+        return nil
     }
 
     private func resolveBookmark(for kind: BookmarkKind) -> URL? {

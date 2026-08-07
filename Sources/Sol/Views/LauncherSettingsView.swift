@@ -409,6 +409,9 @@ struct LauncherSettingsView: View {
                     }
                     .disabled(systemActionsDisabled)
 
+                    Button("Import Existing Data…", action: chooseExistingEngineData)
+                        .disabled(systemActionsDisabled)
+
                     if viewModel.isBackendOperationRunning {
                         ProgressView()
                             .controlSize(.small)
@@ -424,6 +427,10 @@ struct LauncherSettingsView: View {
                         viewModel.revealSaveDataDirectory()
                     }
                 }
+
+                Text("Sol uses its own Application Support folder. Import copies keys, firmware, profiles, saves, and other compatible engine data only after you choose an existing folder; current Sol files are never replaced.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
 
                 if let message = viewModel.backendStatus.message {
                     Text(message)
@@ -633,16 +640,37 @@ struct LauncherSettingsView: View {
         viewModel.scanContent()
     }
 
+    private func chooseExistingEngineData() {
+        let panel = NSOpenPanel()
+        panel.title = "Choose Existing Engine Data"
+        panel.prompt = "Choose Folder"
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        guard confirm(
+            title: "Import Existing Engine Data?",
+            message: "Sol will copy compatible data into its own Application Support folder. Existing Sol files will be kept.",
+            primaryButton: "Import"
+        ) else { return }
+        viewModel.importSolEngineData(from: url)
+    }
+
     private func removeContentDirectory(_ directory: String) {
         viewModel.solEngineConfiguration.autoloadDirectories.removeAll { $0 == directory }
     }
 
-    private func confirm(title: String, message: String) -> Bool {
+    private func confirm(
+        title: String,
+        message: String,
+        primaryButton: String = "Install"
+    ) -> Bool {
         let alert = NSAlert()
         alert.alertStyle = .warning
         alert.messageText = title
         alert.informativeText = message
-        alert.addButton(withTitle: "Install")
+        alert.addButton(withTitle: primaryButton)
         alert.addButton(withTitle: "Cancel")
         return alert.runModal() == .alertFirstButtonReturn
     }

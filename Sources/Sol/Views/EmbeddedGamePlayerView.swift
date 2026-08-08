@@ -49,9 +49,10 @@ final class SolEngineRenderView: NSView {
         quality: .quality,
         frameGeneration: false
     )
-    private var pressedScancodes = Set<Int32>()
+    private var keyboardInputState = SolKeyboardInputStateTracker()
     private var didNotifyReady = false
     nonisolated(unsafe) private var windowResignObserver: NSObjectProtocol?
+    nonisolated(unsafe) private var keyReleaseMonitor: Any?
 
     override init(frame frameRect: NSRect) {
         let device = MTLCreateSystemDefaultDevice()
@@ -105,6 +106,9 @@ final class SolEngineRenderView: NSView {
         if let windowResignObserver {
             NotificationCenter.default.removeObserver(windowResignObserver)
         }
+        if let keyReleaseMonitor {
+            NSEvent.removeMonitor(keyReleaseMonitor)
+        }
     }
 
     override var acceptsFirstResponder: Bool {
@@ -121,6 +125,10 @@ final class SolEngineRenderView: NSView {
             NotificationCenter.default.removeObserver(windowResignObserver)
             self.windowResignObserver = nil
         }
+        if let keyReleaseMonitor {
+            NSEvent.removeMonitor(keyReleaseMonitor)
+            self.keyReleaseMonitor = nil
+        }
         if let window {
             windowResignObserver = NotificationCenter.default.addObserver(
                 forName: NSWindow.didResignKeyNotification,
@@ -130,6 +138,17 @@ final class SolEngineRenderView: NSView {
                 Task { @MainActor [weak self] in
                     self?.resetInputState()
                 }
+            }
+            // A rapid key chord can move first-responder ownership before the
+            // render view receives the matching key-up. Observe releases at the
+            // window boundary as a safety net; duplicate releases are collapsed
+            // by SolKeyboardInputStateTracker.
+            keyReleaseMonitor = NSEvent.addLocalMonitorForEvents(
+                matching: .keyUp
+            ) { [weak self, weak window] event in
+                guard let self, event.window === window else { return event }
+                self.forwardKey(event, pressed: false)
+                return event
             }
         } else {
             resetInputState()
@@ -179,9 +198,9 @@ final class SolEngineRenderView: NSView {
             // AppKit exposes aggregate modifier flags, which cannot tell that
             // left Shift was released while right Shift remains down. Track
             // each physical modifier independently from its flagsChanged edge.
-            pressed = !pressedScancodes.contains(scancode)
+            pressed = !keyboardInputState.isPressed(keyCode: event.keyCode)
         }
-        setKeyState(scancode, pressed: pressed)
+        setKeyState(event.keyCode, scancode: scancode, pressed: pressed)
     }
 
     override func layout() {
@@ -289,20 +308,21 @@ final class SolEngineRenderView: NSView {
         guard let scancode = Self.sdlScancode(for: event.keyCode) else {
             return
         }
-        setKeyState(scancode, pressed: pressed)
+        setKeyState(event.keyCode, scancode: scancode, pressed: pressed)
     }
 
-    private func setKeyState(_ scancode: Int32, pressed: Bool) {
-        if pressed {
-            pressedScancodes.insert(scancode)
-        } else {
-            pressedScancodes.remove(scancode)
+    private func setKeyState(_ keyCode: UInt16, scancode: Int32, pressed: Bool) {
+        for transition in keyboardInputState.update(
+            keyCode: keyCode,
+            scancode: scancode,
+            pressed: pressed
+        ) {
+            onKeyEvent?(transition.scancode, transition.pressed)
         }
-        onKeyEvent?(scancode, pressed)
     }
 
     private func resetInputState() {
-        pressedScancodes.removeAll(keepingCapacity: true)
+        keyboardInputState.reset()
         onInputReset?()
     }
 
@@ -377,6 +397,80 @@ final class SolEngineRenderView: NSView {
             dlsmConfiguration,
             outputSize: outputMetalLayer.drawableSize
         )
+    }
+}
+
+struct SolKeyboardInputTransition: Equatable {
+    let scancode: Int32
+    let pressed: Bool
+}
+
+struct SolKeyboardInputStateTracker {
+    private var scancodeByKeyCode: [UInt16: Int32] = [:]
+
+    var pressedScancodes: Set<Int32> {
+        Set(scancodeByKeyCode.values)
+    }
+
+    func isPressed(keyCode: UInt16) -> Bool {
+        scancodeByKeyCode[keyCode] != nil
+    }
+
+    mutating func update(
+        keyCode: UInt16,
+        scancode: Int32,
+        pressed: Bool
+    ) -> [SolKeyboardInputTransition] {
+        if pressed {
+            if scancodeByKeyCode[keyCode] == scancode {
+                // Ignore AppKit key-repeat events. Sol Engine consumes current
+                // state, not a queue of repeated key-down commands.
+                return []
+            }
+
+            var transitions: [SolKeyboardInputTransition] = []
+            if let previousScancode = scancodeByKeyCode.updateValue(
+                scancode,
+                forKey: keyCode
+            ), !scancodeByKeyCode.values.contains(previousScancode) {
+                transitions.append(
+                    SolKeyboardInputTransition(
+                        scancode: previousScancode,
+                        pressed: false
+                    )
+                )
+            }
+
+            let duplicatePhysicalMapping = scancodeByKeyCode.contains { entry in
+                entry.key != keyCode && entry.value == scancode
+            }
+            if !duplicatePhysicalMapping {
+                transitions.append(
+                    SolKeyboardInputTransition(scancode: scancode, pressed: true)
+                )
+            }
+            return transitions
+        }
+
+        guard let releasedScancode = scancodeByKeyCode.removeValue(
+            forKey: keyCode
+        ) else {
+            return []
+        }
+
+        guard !scancodeByKeyCode.values.contains(releasedScancode) else {
+            return []
+        }
+        return [
+            SolKeyboardInputTransition(
+                scancode: releasedScancode,
+                pressed: false
+            )
+        ]
+    }
+
+    mutating func reset() {
+        scancodeByKeyCode.removeAll(keepingCapacity: true)
     }
 }
 

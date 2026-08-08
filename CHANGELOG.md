@@ -15,6 +15,9 @@
 - Hardened launch/stop transitions against transient invalid layout sizes,
   stopped overriding application-wide presentation flags outside fullscreen,
   and isolated every emulation session on a fresh Metal render surface.
+- Fixed rapid controller and keyboard changes leaving stale movement behind by
+  isolating launcher input observation during gameplay and coalescing native
+  key-state transitions.
 
 ## 0.2.0 — 2026-08-07
 

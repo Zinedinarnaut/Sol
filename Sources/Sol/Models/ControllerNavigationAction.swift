@@ -31,3 +31,12 @@ enum ControllerLauncherNavigationPolicy {
         return nil
     }
 }
+
+enum ControllerInputObservationPolicy {
+    static func isEnabled(
+        pollingEnabled: Bool,
+        isEmulationActive: Bool
+    ) -> Bool {
+        pollingEnabled && !isEmulationActive
+    }
+}

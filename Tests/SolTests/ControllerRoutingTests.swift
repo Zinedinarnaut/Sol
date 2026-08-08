@@ -1,3 +1,5 @@
+import Foundation
+import GameController
 import XCTest
 @testable import Sol
 
@@ -147,6 +149,97 @@ final class ControllerRoutingTests: XCTestCase {
                 isEmulationActive: false
             )
         )
+    }
+
+    func testNativeControllerObservationStopsForAnEmulationSession() {
+        XCTAssertTrue(
+            ControllerInputObservationPolicy.isEnabled(
+                pollingEnabled: true,
+                isEmulationActive: false
+            )
+        )
+        XCTAssertFalse(
+            ControllerInputObservationPolicy.isEnabled(
+                pollingEnabled: false,
+                isEmulationActive: false
+            )
+        )
+        XCTAssertFalse(
+            ControllerInputObservationPolicy.isEnabled(
+                pollingEnabled: true,
+                isEmulationActive: true
+            )
+        )
+    }
+
+    func testRapidVirtualControllerInputStaysIsolatedDuringEmulation() throws {
+        let controller = GCController.withExtendedGamepad()
+        let gamepad = try XCTUnwrap(controller.extendedGamepad)
+        let service = ControllerManagerService()
+        var controllerUpdates = 0
+        var navigationActions: [ControllerNavigationAction] = []
+        var latestInput: ControllerInputSnapshot?
+
+        service.onControllersChanged = { controllers in
+            guard let input = controllers.last?.input else { return }
+            controllerUpdates += 1
+            latestInput = input
+        }
+        service.onNavigate = { navigationActions.append($0) }
+        service.start()
+        defer {
+            NotificationCenter.default.post(
+                name: NSNotification.Name.GCControllerDidDisconnect,
+                object: controller
+            )
+            service.stop()
+        }
+
+        NotificationCenter.default.post(
+            name: NSNotification.Name.GCControllerDidConnect,
+            object: controller
+        )
+        drainMainRunLoop()
+        XCTAssertGreaterThan(controllerUpdates, 0)
+
+        service.setEmulationActive(true)
+        let updatesAtLaunch = controllerUpdates
+
+        for step in 0..<1_000 {
+            let horizontal: Float = step.isMultiple(of: 2) ? -1 : 1
+            let vertical: Float = step.isMultiple(of: 3) ? -1 : 1
+            gamepad.leftThumbstick.setValueForXAxis(
+                horizontal,
+                yAxis: vertical
+            )
+            gamepad.dpad.setValueForXAxis(-horizontal, yAxis: -vertical)
+            gamepad.buttonA.setValue(step.isMultiple(of: 2) ? 1 : 0)
+        }
+        gamepad.leftThumbstick.setValueForXAxis(0, yAxis: 0)
+        gamepad.dpad.setValueForXAxis(0, yAxis: 0)
+        gamepad.buttonA.setValue(0)
+        drainMainRunLoop()
+
+        XCTAssertEqual(controllerUpdates, updatesAtLaunch)
+        XCTAssertTrue(navigationActions.isEmpty)
+
+        // Re-enabling observation captures the current state as its baseline,
+        // so movement held while the game closes cannot leak into the library.
+        gamepad.leftThumbstick.setValueForXAxis(1, yAxis: 0)
+        service.setEmulationActive(false)
+        drainMainRunLoop()
+        XCTAssertEqual(latestInput?.leftStickX, 1)
+        XCTAssertTrue(navigationActions.isEmpty)
+
+        gamepad.leftThumbstick.setValueForXAxis(0, yAxis: 0)
+        drainMainRunLoop()
+        gamepad.leftThumbstick.setValueForXAxis(-1, yAxis: 0)
+        drainMainRunLoop()
+        XCTAssertEqual(navigationActions, [.previous])
+    }
+
+    private func drainMainRunLoop(for duration: TimeInterval = 0.12) {
+        RunLoop.main.run(until: Date().addingTimeInterval(duration))
     }
 
     private func device(

@@ -42,7 +42,7 @@ final class LauncherViewModel: ObservableObject {
     let iCloudProfileSync: ICloudProfileSyncService
     let appleAccount: AppleAccountService
     let updateService: GitHubUpdateService
-    let embeddedRenderView = SolEngineRenderView()
+    private(set) var embeddedRenderView = SolEngineRenderView()
 
     private let pathResolver: SolEnginePathResolver
     private let metadataService: SolEngineMetadataService
@@ -701,6 +701,11 @@ final class LauncherViewModel: ObservableObject {
             return
         }
 
+        // A CAMetalLayer is a presentation-session object. Reusing one after
+        // MoltenVK has destroyed its swapchain can leave already-presented
+        // drawables attached to the next launch, so every session owns a fresh
+        // render view and layer pair.
+        embeddedRenderView = SolEngineRenderView()
         isLaunching = true
         isLaunchIsolationActive = true
         dlsmProviderStatus = DLSMProviderStatus(stage: "discovering")
@@ -937,6 +942,7 @@ final class LauncherViewModel: ObservableObject {
         isAmiiboPickerPresented = false
         isAmiiboScanPending = false
         amiiboStatusMessage = nil
+        embeddedRenderView.retireAfterSession()
         embeddedLaunchID = nil
         isAttachingEmbeddedSurface = false
         isLaunching = false

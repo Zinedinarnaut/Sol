@@ -115,13 +115,13 @@ struct LibraryBrowserView: View {
                     LazyVGrid(
                         columns: [
                             GridItem(
-                                .adaptive(minimum: 150, maximum: 188),
-                                spacing: 20,
+                                .adaptive(minimum: 190, maximum: 232),
+                                spacing: 22,
                                 alignment: .top
                             )
                         ],
                         alignment: .leading,
-                        spacing: 24
+                        spacing: 26
                     ) {
                         ForEach(filteredGames) { game in
                             LibraryGameCard(
@@ -172,6 +172,7 @@ struct LibraryBrowserView: View {
 
 private struct LibraryGameCard: View {
     private static let coverAspect: CGFloat = 0.714
+    private static let cornerRadius: CGFloat = 16
 
     let game: Game
     let isSelected: Bool
@@ -187,22 +188,54 @@ private struct LibraryGameCard: View {
     @State private var isHovering = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 9) {
-            ZStack(alignment: .bottomTrailing) {
-                Button(action: onOpen) {
-                    Color.clear
+        ZStack(alignment: .topTrailing) {
+            Button(action: onOpen) {
+                Color.clear
                     .aspectRatio(Self.coverAspect, contentMode: .fit)
                     .frame(maxWidth: .infinity)
                     .overlay {
                         ThumbnailView(
                             game: game,
                             service: thumbnailService,
-                            targetSize: CGSize(width: 376, height: 526)
+                            targetSize: CGSize(width: 464, height: 650)
                         )
                     }
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .overlay(alignment: .bottom) {
+                        LinearGradient(
+                            colors: [
+                                .clear,
+                                .black.opacity(0.18),
+                                .black.opacity(0.9),
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                        .frame(height: 132)
+                        .allowsHitTesting(false)
+                    }
+                    .overlay(alignment: .bottomLeading) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(game.title)
+                                .font(.headline.weight(.semibold))
+                                .foregroundStyle(.white)
+                                .lineLimit(2)
+                                .multilineTextAlignment(.leading)
+
+                            Label(game.formattedPlaytime, systemImage: "clock")
+                                .font(.caption.weight(.medium))
+                                .foregroundStyle(.white.opacity(0.76))
+                                .lineLimit(1)
+                        }
+                        .shadow(color: .black.opacity(0.7), radius: 3, y: 1)
+                        .padding(14)
+                        .padding(.trailing, 38)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .clipShape(
+                        RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous)
+                    )
                     .overlay {
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous)
                             .stroke(
                                 isSelected ? Color.accentColor : Color.primary.opacity(0.14),
                                 lineWidth: isSelected ? 2 : 1
@@ -213,38 +246,26 @@ private struct LibraryGameCard: View {
                         radius: isHovering ? 16 : 7,
                         y: isHovering ? 8 : 3
                     )
-                }
-                .buttonStyle(.plain)
-
-                Button(action: onLaunch) {
-                    Image(systemName: "play.fill")
-                        .font(.callout.weight(.semibold))
-                        .frame(width: 34, height: 34)
-                }
-                .buttonStyle(.borderedProminent)
-                .buttonBorderShape(.circle)
-                .controlSize(.small)
-                .disabled(!canLaunch)
-                .padding(10)
-                .opacity(isHovering || isSelected ? 1 : 0)
-                .scaleEffect(isHovering || isSelected ? 1 : 0.84)
-                .accessibilityLabel("Play \(game.title)")
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel(game.title)
+            .accessibilityValue(game.formattedPlaytime)
 
-            VStack(alignment: .leading, spacing: 3) {
-                Text(game.title)
+            Button(action: onLaunch) {
+                Image(systemName: "play.fill")
                     .font(.callout.weight(.semibold))
-                    .lineLimit(2)
-                    .frame(height: 38, alignment: .topLeading)
-
-                Text(game.formattedPlaytime)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                    .frame(width: 34, height: 34)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .buttonStyle(.borderedProminent)
+            .buttonBorderShape(.circle)
+            .controlSize(.small)
+            .disabled(!canLaunch)
+            .padding(12)
+            .opacity(isHovering || isSelected ? 1 : 0)
+            .scaleEffect(isHovering || isSelected ? 1 : 0.84)
+            .accessibilityLabel("Play \(game.title)")
         }
-        .contentShape(Rectangle())
+        .contentShape(RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous))
         .scaleEffect(isHovering ? 1.015 : 1)
         .animation(.easeOut(duration: 0.16), value: isHovering)
         .onHover { isHovering = $0 }

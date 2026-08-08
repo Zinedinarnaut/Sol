@@ -200,7 +200,6 @@ final class FullscreenWindowObserver: NSObject {
     private var isEmulationPresentationActive = false
     private var previousToolbarVisibility: Bool?
     private var previousTitleVisibility: NSWindow.TitleVisibility?
-    private var previousPresentationOptions: NSApplication.PresentationOptions?
 
     func observe(window: NSWindow, onFullscreenChange: @escaping (Bool) -> Void) {
         self.onFullscreenChange = onFullscreenChange
@@ -241,28 +240,13 @@ final class FullscreenWindowObserver: NSObject {
         if active {
             previousToolbarVisibility = window.toolbar?.isVisible
             previousTitleVisibility = window.titleVisibility
-            previousPresentationOptions = NSApp.presentationOptions
             window.toolbar?.isVisible = false
             window.titleVisibility = .hidden
-            var presentationOptions = NSApp.presentationOptions
-            presentationOptions.remove([
-                .autoHideDock,
-                .autoHideMenuBar,
-            ])
-            presentationOptions.formUnion([
-                .hideDock,
-                .hideMenuBar,
-            ])
-            NSApp.presentationOptions = presentationOptions
         } else {
             window.toolbar?.isVisible = previousToolbarVisibility ?? true
             window.titleVisibility = previousTitleVisibility ?? .visible
-            if let previousPresentationOptions {
-                NSApp.presentationOptions = previousPresentationOptions
-            }
             previousToolbarVisibility = nil
             previousTitleVisibility = nil
-            previousPresentationOptions = nil
         }
     }
 

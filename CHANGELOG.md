@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.2.1 — 2026-08-08
+
+- Fixed fresh installs showing a missing `Config.json` error before Sol Engine
+  had written its defaults.
+- Fixed firmware ZIP installation by streaming NCA files through a bounded,
+  disk-backed staging area instead of retaining every archive in memory.
+- Added a real extracted-folder choice to the firmware picker and clearer
+  errors for incomplete packages or mismatched production keys.
+- Fixed the home carousel layout feedback loop and the remaining clipped card
+  edge at the bottom of the window.
+- Fixed a zero-sized Metal background surface during startup and corrected the
+  app's macOS document-role declaration.
+- Hardened launch/stop transitions against transient invalid layout sizes,
+  stopped overriding application-wide presentation flags outside fullscreen,
+  and isolated every emulation session on a fresh Metal render surface.
+
 ## 0.2.0 — 2026-08-07
 
 - Added the first downloadable Sol DMG and a verified native GitHub updater.

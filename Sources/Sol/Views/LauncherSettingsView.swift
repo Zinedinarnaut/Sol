@@ -378,7 +378,10 @@ struct LauncherSettingsView: View {
                 }
 
                 LabeledContent {
-                    Button("Install Firmware…", action: chooseFirmware)
+                    Menu("Install Firmware…") {
+                        Button("Choose ZIP or XCI…", action: chooseFirmwarePackage)
+                        Button("Choose Extracted Folder…", action: chooseFirmwareDirectory)
+                    }
                         .disabled(systemActionsDisabled)
                 } label: {
                     VStack(alignment: .leading, spacing: 2) {
@@ -607,12 +610,12 @@ struct LauncherSettingsView: View {
         viewModel.installKeys(from: url)
     }
 
-    private func chooseFirmware() {
+    private func chooseFirmwarePackage() {
         let panel = NSOpenPanel()
         panel.title = "Choose Firmware Package"
         panel.prompt = "Choose"
         panel.canChooseFiles = true
-        panel.canChooseDirectories = true
+        panel.canChooseDirectories = false
         panel.allowsMultipleSelection = false
         panel.allowedContentTypes = [
             .zip,
@@ -623,6 +626,23 @@ struct LauncherSettingsView: View {
         guard confirm(
             title: "Install Firmware?",
             message: "Sol will verify this package, then replace the currently registered firmware with the selected version."
+        ) else { return }
+        viewModel.installFirmware(from: url)
+    }
+
+    private func chooseFirmwareDirectory() {
+        let panel = NSOpenPanel()
+        panel.title = "Choose Extracted Firmware Folder"
+        panel.message = "Choose the folder that directly contains the extracted .nca firmware files."
+        panel.prompt = "Choose Folder"
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        guard confirm(
+            title: "Install Firmware From This Folder?",
+            message: "Sol will verify the extracted firmware before replacing the currently registered version."
         ) else { return }
         viewModel.installFirmware(from: url)
     }

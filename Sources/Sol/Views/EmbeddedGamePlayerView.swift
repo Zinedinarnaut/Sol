@@ -275,6 +275,16 @@ final class SolEngineRenderView: NSView {
         didNotifyReady = false
     }
 
+    func retireAfterSession() {
+        resetInputState()
+        onReady = nil
+        onLayout = nil
+        onKeyEvent = nil
+        onInputReset = nil
+        dlsmPipeline.setPresentationAvailabilityHandler(nil)
+        setDLSMOutputAvailable(false)
+    }
+
     private func forwardKey(_ event: NSEvent, pressed: Bool) {
         guard let scancode = Self.sdlScancode(for: event.keyCode) else {
             return

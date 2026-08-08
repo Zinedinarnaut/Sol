@@ -45,7 +45,7 @@ struct LauncherView: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let size = proxy.size
+            let size = LauncherLayout.sanitizedSize(proxy.size)
 
             ZStack {
                 if viewModel.isLaunching {
@@ -180,7 +180,6 @@ struct LauncherView: View {
         .task {
             await viewModel.updateService.checkForUpdates()
         }
-        .animation(.snappy(duration: 0.25), value: viewModel.isLaunching)
         .sheet(isPresented: $viewModel.isAmiiboPickerPresented) {
             AmiiboPickerView(viewModel: viewModel)
         }
@@ -248,7 +247,7 @@ struct LauncherView: View {
                     onRevealGameData: viewModel.revealGameDataDirectory
                 )
                 .frame(maxWidth: .infinity)
-                .frame(height: 326)
+                .frame(height: GameCarouselView.preferredHeight)
                 .padding(.horizontal, 20)
                 .padding(.bottom, 16)
             }
@@ -553,6 +552,15 @@ struct LauncherView: View {
     }
 }
 
+enum LauncherLayout {
+    static func sanitizedSize(_ proposed: CGSize) -> CGSize {
+        CGSize(
+            width: proposed.width.isFinite ? max(1, proposed.width) : 1,
+            height: proposed.height.isFinite ? max(1, proposed.height) : 1
+        )
+    }
+}
+
 private struct LauncherToolbar: ToolbarContent {
     @ObservedObject var viewModel: LauncherViewModel
     @Binding var searchText: String
@@ -691,12 +699,13 @@ private struct LauncherToolbar: ToolbarContent {
         Picker("View", selection: $section) {
             ForEach(LauncherSection.allCases) { section in
                 Label(section.title, systemImage: section.systemImage)
+                    .labelStyle(.iconOnly)
                     .tag(section)
             }
         }
         .pickerStyle(.segmented)
         .labelsHidden()
-        .frame(width: 170)
+        .fixedSize(horizontal: true, vertical: false)
         .help("Switch between Home and Library")
     }
 }

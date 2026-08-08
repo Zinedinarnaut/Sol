@@ -22,8 +22,14 @@ struct MetalBackgroundView: NSViewRepresentable {
             return fallbackView()
         }
 
-        let mtkView = PassthroughMTKView()
-        mtkView.device = device
+        let initialSize = CGSize(
+            width: max(1, viewSize.width),
+            height: max(1, viewSize.height)
+        )
+        let mtkView = PassthroughMTKView(
+            frame: CGRect(origin: .zero, size: initialSize),
+            device: device
+        )
         mtkView.framebufferOnly = true
         mtkView.autoResizeDrawable = true
         mtkView.isPaused = false

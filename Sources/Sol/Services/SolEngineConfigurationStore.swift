@@ -288,6 +288,18 @@ final class SolEngineConfigurationStore: ObservableObject {
             return
         }
 
+        guard FileManager.default.fileExists(atPath: configURL.path) else {
+            // A fresh install connects the settings UI before the bundled
+            // backend has created its authoritative defaults. Treat that short
+            // initialization window as pending instead of presenting an ENOENT
+            // failure to the user. The backend status event reloads this store.
+            document = [:]
+            isLoaded = false
+            lastError = nil
+            objectWillChange.send()
+            return
+        }
+
         do {
             let data = try Data(contentsOf: configURL)
             guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {

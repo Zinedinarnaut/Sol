@@ -3,6 +3,19 @@ import XCTest
 @testable import Sol
 
 final class SolEngineSurfaceSizingTests: XCTestCase {
+    func testLauncherLayoutRejectsNegativeAndNonFiniteTransitionSizes() {
+        XCTAssertEqual(
+            LauncherLayout.sanitizedSize(
+                CGSize(width: -320, height: CGFloat.infinity)
+            ),
+            CGSize(width: 1, height: 1)
+        )
+        XCTAssertEqual(
+            LauncherLayout.sanitizedSize(CGSize(width: 1_280, height: 720)),
+            CGSize(width: 1_280, height: 720)
+        )
+    }
+
     func testCapsTransientSwiftUILayoutAgainstTheRealScreen() {
         let logicalSize = SolEngineSurfaceSizing.logicalSize(
             bounds: CGSize(width: 1_512, height: 50_068),

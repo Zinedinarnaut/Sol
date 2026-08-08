@@ -9,8 +9,8 @@ the future Developer ID signed/notarized release. Both are built from a tag on
 The release version lives in `project.yml`:
 
 ```yaml
-MARKETING_VERSION: "0.2.0"
-CURRENT_PROJECT_VERSION: "3"
+MARKETING_VERSION: "0.2.1"
+CURRENT_PROJECT_VERSION: "4"
 ```
 
 For every release:

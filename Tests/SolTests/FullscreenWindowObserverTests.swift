@@ -67,7 +67,7 @@ final class FullscreenWindowObserverTests: XCTestCase {
     }
 
     @MainActor
-    func testEmulationPresentationHidesToolbarWithoutChangingWindowFrame() {
+    func testEmulationPresentationHidesToolbarWithoutChangingWindowOrApplicationPresentation() {
         let window = makeWindow()
         window.toolbar = NSToolbar(identifier: "TestToolbar")
         let observer = FullscreenWindowObserver()
@@ -80,8 +80,7 @@ final class FullscreenWindowObserverTests: XCTestCase {
         XCTAssertFalse(window.toolbar?.isVisible ?? true)
         XCTAssertEqual(window.titleVisibility, .hidden)
         XCTAssertEqual(window.frame, originalFrame)
-        XCTAssertTrue(NSApp.presentationOptions.contains(.hideDock))
-        XCTAssertTrue(NSApp.presentationOptions.contains(.hideMenuBar))
+        XCTAssertEqual(NSApp.presentationOptions, originalPresentationOptions)
 
         observer.setEmulationPresentationActive(false)
 

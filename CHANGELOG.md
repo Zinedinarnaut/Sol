@@ -12,6 +12,9 @@
   edge at the bottom of the window.
 - Fixed a zero-sized Metal background surface during startup and corrected the
   app's macOS document-role declaration.
+- Hardened launch/stop transitions against transient invalid layout sizes,
+  stopped overriding application-wide presentation flags outside fullscreen,
+  and isolated every emulation session on a fresh Metal render surface.
 
 ## 0.2.0 — 2026-08-07
 

@@ -45,7 +45,7 @@ struct LauncherView: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let size = proxy.size
+            let size = LauncherLayout.sanitizedSize(proxy.size)
 
             ZStack {
                 if viewModel.isLaunching {
@@ -180,7 +180,6 @@ struct LauncherView: View {
         .task {
             await viewModel.updateService.checkForUpdates()
         }
-        .animation(.snappy(duration: 0.25), value: viewModel.isLaunching)
         .sheet(isPresented: $viewModel.isAmiiboPickerPresented) {
             AmiiboPickerView(viewModel: viewModel)
         }
@@ -550,6 +549,15 @@ struct LauncherView: View {
             .scaleEffect(1.018)
             .overlay(Color.black.opacity(0.24))
             .offset(x: parallax)
+    }
+}
+
+enum LauncherLayout {
+    static func sanitizedSize(_ proposed: CGSize) -> CGSize {
+        CGSize(
+            width: proposed.width.isFinite ? max(1, proposed.width) : 1,
+            height: proposed.height.isFinite ? max(1, proposed.height) : 1
+        )
     }
 }
 

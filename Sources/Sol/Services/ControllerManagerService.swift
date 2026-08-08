@@ -46,7 +46,8 @@ final class ControllerManagerService: @unchecked Sendable {
         }
 
         refreshTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
-            self?.publish()
+            guard let self, self.isInputObservationEnabled else { return }
+            self.publish()
         }
 
         inputPollTimer = Timer.scheduledTimer(withTimeInterval: 0.08, repeats: true) { [weak self] _ in
@@ -59,12 +60,15 @@ final class ControllerManagerService: @unchecked Sendable {
         refreshTimer = nil
         inputPollTimer?.invalidate()
         inputPollTimer = nil
+        controllersByObjectID.values.forEach { removeInputHandler(from: $0.controller) }
         NotificationCenter.default.removeObserver(self)
         GCController.stopWirelessControllerDiscovery()
     }
 
     func setPollingEnabled(_ enabled: Bool) {
+        guard isPollingEnabled != enabled else { return }
         isPollingEnabled = enabled
+        reconfigureInputObservation()
     }
 
     func setNavigationEnabled(_ enabled: Bool) {
@@ -72,7 +76,9 @@ final class ControllerManagerService: @unchecked Sendable {
     }
 
     func setEmulationActive(_ active: Bool) {
+        guard isEmulationActive != active else { return }
         isEmulationActive = active
+        reconfigureInputObservation()
     }
 
     func setLightbarColor(controllerID: UUID, rgb: (Float, Float, Float)) -> Bool {
@@ -166,20 +172,15 @@ final class ControllerManagerService: @unchecked Sendable {
         controllersByObjectID[objectID] = entry
         objectIDByUUID[entry.id] = objectID
 
-        if let gamepad = controller.extendedGamepad {
-            gamepad.valueChangedHandler = { [weak self] _, _ in
-                self?.updateSnapshot(for: controller)
-            }
-        } else if let micro = controller.microGamepad {
-            micro.valueChangedHandler = { [weak self] _, _ in
-                self?.updateSnapshot(for: controller)
-            }
+        if isInputObservationEnabled {
+            installInputHandler(on: controller)
         }
 
         publish()
     }
 
     private func unregister(_ controller: GCController) {
+        removeInputHandler(from: controller)
         let objectID = ObjectIdentifier(controller)
         if let entry = controllersByObjectID.removeValue(forKey: objectID) {
             objectIDByUUID.removeValue(forKey: entry.id)
@@ -189,6 +190,10 @@ final class ControllerManagerService: @unchecked Sendable {
     }
 
     private func updateSnapshot(for controller: GCController) {
+        // GameController may already have queued callbacks when a game begins.
+        // Ignore those late callbacks so rapid analog input cannot compete with
+        // Sol Engine's SDL event pump on AppKit's main loop.
+        guard isInputObservationEnabled else { return }
         let objectID = ObjectIdentifier(controller)
         guard var entry = controllersByObjectID[objectID] else { return }
         let previous = entry.snapshot
@@ -208,11 +213,59 @@ final class ControllerManagerService: @unchecked Sendable {
     }
 
     private func pollInputs() {
-        guard isPollingEnabled else { return }
+        guard isInputObservationEnabled else { return }
         let controllers = controllersByObjectID.values.map { $0.controller }
         for controller in controllers {
             updateSnapshot(for: controller)
         }
+    }
+
+    private var isInputObservationEnabled: Bool {
+        ControllerInputObservationPolicy.isEnabled(
+            pollingEnabled: isPollingEnabled,
+            isEmulationActive: isEmulationActive
+        )
+    }
+
+    private func reconfigureInputObservation() {
+        let enabled = isInputObservationEnabled
+
+        for objectID in Array(controllersByObjectID.keys) {
+            guard var entry = controllersByObjectID[objectID] else { continue }
+            removeInputHandler(from: entry.controller)
+
+            guard enabled else { continue }
+
+            // Establish a fresh baseline before callbacks resume. A button or
+            // stick held while the game was closing must not turn into a
+            // launcher shortcut when the library becomes active again.
+            entry.snapshot = snapshotForController(entry.controller)
+            controllersByObjectID[objectID] = entry
+            installInputHandler(on: entry.controller)
+        }
+
+        if enabled {
+            publish()
+        }
+    }
+
+    private func installInputHandler(on controller: GCController) {
+        if let gamepad = controller.extendedGamepad {
+            gamepad.valueChangedHandler = { [weak self, weak controller] _, _ in
+                guard let controller else { return }
+                self?.updateSnapshot(for: controller)
+            }
+        } else if let micro = controller.microGamepad {
+            micro.valueChangedHandler = { [weak self, weak controller] _, _ in
+                guard let controller else { return }
+                self?.updateSnapshot(for: controller)
+            }
+        }
+    }
+
+    private func removeInputHandler(from controller: GCController) {
+        controller.extendedGamepad?.valueChangedHandler = nil
+        controller.microGamepad?.valueChangedHandler = nil
     }
 
     private func handleNavigation(id: UUID, previous: ControllerInputSnapshot, current: ControllerInputSnapshot) {

@@ -149,6 +149,27 @@ final class ControllerRoutingTests: XCTestCase {
         )
     }
 
+    func testNativeControllerObservationStopsForAnEmulationSession() {
+        XCTAssertTrue(
+            ControllerInputObservationPolicy.isEnabled(
+                pollingEnabled: true,
+                isEmulationActive: false
+            )
+        )
+        XCTAssertFalse(
+            ControllerInputObservationPolicy.isEnabled(
+                pollingEnabled: false,
+                isEmulationActive: false
+            )
+        )
+        XCTAssertFalse(
+            ControllerInputObservationPolicy.isEnabled(
+                pollingEnabled: true,
+                isEmulationActive: true
+            )
+        )
+    }
+
     private func device(
         id: String,
         name: String,

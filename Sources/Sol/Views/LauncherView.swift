@@ -699,12 +699,13 @@ private struct LauncherToolbar: ToolbarContent {
         Picker("View", selection: $section) {
             ForEach(LauncherSection.allCases) { section in
                 Label(section.title, systemImage: section.systemImage)
+                    .labelStyle(.iconOnly)
                     .tag(section)
             }
         }
         .pickerStyle(.segmented)
         .labelsHidden()
-        .frame(width: 170)
+        .fixedSize(horizontal: true, vertical: false)
         .help("Switch between Home and Library")
     }
 }

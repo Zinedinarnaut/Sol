@@ -80,9 +80,9 @@ struct GameCarouselView: View {
                                 }
                             )
                         }
-                        .scrollClipDisabled()
                         .scrollTargetBehavior(.viewAligned)
                         .frame(height: rowHeight)
+                        .clipped()
                         .coordinateSpace(name: "carousel")
                         .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
                             scrollOffset = value

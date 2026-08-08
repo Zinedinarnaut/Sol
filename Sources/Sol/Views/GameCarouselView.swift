@@ -2,6 +2,8 @@ import SwiftUI
 import Foundation
 
 struct GameCarouselView: View {
+    static let preferredHeight: CGFloat = 340
+
     let games: [Game]
     let totalGameCount: Int
     @Binding var selectedGame: Game?
@@ -24,9 +26,6 @@ struct GameCarouselView: View {
     private let cardSpacing: CGFloat = 14
 
     @State private var isUserDragging = false
-    @State private var cardCenters: [String: CGFloat] = [:]
-    @State private var carouselCenterX: CGFloat = 0
-    @State private var snapWorkItem: DispatchWorkItem?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -67,19 +66,10 @@ struct GameCarouselView: View {
                                         onRevealSDMods: { onRevealSDMods(game) },
                                         onRevealGameData: { onRevealGameData(game) }
                                     )
-                                    .background(
-                                        GeometryReader { proxy in
-                                            let cardFrame = proxy.frame(in: .named("carousel"))
-                                            Color.clear
-                                                .preference(
-                                                    key: CardCenterPreferenceKey.self,
-                                                    value: [game.id: cardFrame.midX]
-                                                )
-                                        }
-                                    )
                                     .id(game.id)
                                 }
                             }
+                            .scrollTargetLayout()
                             .padding(.vertical, 14)
                             .padding(.horizontal, horizontalInset)
                             .background(
@@ -87,21 +77,15 @@ struct GameCarouselView: View {
                                     let frame = geo.frame(in: .named("carousel"))
                                     Color.clear
                                         .preference(key: ScrollOffsetPreferenceKey.self, value: -frame.minX)
-                                        .preference(key: CarouselCenterPreferenceKey.self, value: frame.midX)
                                 }
                             )
                         }
                         .scrollClipDisabled()
+                        .scrollTargetBehavior(.viewAligned)
                         .frame(height: rowHeight)
                         .coordinateSpace(name: "carousel")
                         .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
                             scrollOffset = value
-                        }
-                        .onPreferenceChange(CardCenterPreferenceKey.self) { value in
-                            cardCenters = value
-                        }
-                        .onPreferenceChange(CarouselCenterPreferenceKey.self) { value in
-                            carouselCenterX = value
                         }
                         .onAppear {
                             scrollToSelection(using: proxy, after: 0.15, animated: false)
@@ -127,7 +111,6 @@ struct GameCarouselView: View {
                                 }
                                 .onEnded { _ in
                                     isUserDragging = false
-                                    scheduleSnap(using: proxy)
                                 }
                         )
                     }
@@ -173,33 +156,6 @@ struct GameCarouselView: View {
             }
         }
         .opacity(isGamingMode ? 0.55 : 1)
-    }
-
-    private func snapToNearest(using proxy: ScrollViewProxy) {
-        guard !games.isEmpty, !cardCenters.isEmpty else { return }
-        let nearest = cardCenters.min { lhs, rhs in
-            abs(lhs.value - carouselCenterX) < abs(rhs.value - carouselCenterX)
-        }
-        guard let id = nearest?.key,
-              let game = games.first(where: { $0.id == id }) else { return }
-        if selectedGame?.id != id {
-            selectedGame = game
-        }
-        let animation = isGamingMode
-            ? Animation.interpolatingSpring(stiffness: 260, damping: 30)
-            : Animation.interpolatingSpring(stiffness: 210, damping: 24)
-        withAnimation(animation) {
-            proxy.scrollTo(id, anchor: .center)
-        }
-    }
-
-    private func scheduleSnap(using proxy: ScrollViewProxy) {
-        snapWorkItem?.cancel()
-        let work = DispatchWorkItem {
-            snapToNearest(using: proxy)
-        }
-        snapWorkItem = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12, execute: work)
     }
 
     private func scrollToSelection(
@@ -250,22 +206,6 @@ private struct NativeLibrarySurface: ViewModifier {
 }
 
 private struct ScrollOffsetPreferenceKey: PreferenceKey {
-    static let defaultValue: CGFloat = 0
-
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
-    }
-}
-
-private struct CardCenterPreferenceKey: PreferenceKey {
-    static let defaultValue: [String: CGFloat] = [:]
-
-    static func reduce(value: inout [String: CGFloat], nextValue: () -> [String: CGFloat]) {
-        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
-    }
-}
-
-private struct CarouselCenterPreferenceKey: PreferenceKey {
     static let defaultValue: CGFloat = 0
 
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {

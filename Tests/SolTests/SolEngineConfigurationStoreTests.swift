@@ -4,6 +4,29 @@ import XCTest
 
 final class SolEngineConfigurationStoreTests: XCTestCase {
     @MainActor
+    func testMissingConfigurationWaitsForBackendDefaultsWithoutShowingAnError() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("SolEngineConfigMissing-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+
+        let store = SolEngineConfigurationStore()
+        store.connect(to: root)
+
+        XCTAssertFalse(store.isLoaded)
+        XCTAssertNil(store.lastError)
+        XCTAssertEqual(store.configURL, root.appendingPathComponent("Config.json"))
+
+        try Data("{\"version\":70,\"enable_shader_cache\":true}".utf8)
+            .write(to: root.appendingPathComponent("Config.json"))
+        store.reload()
+
+        XCTAssertTrue(store.isLoaded)
+        XCTAssertNil(store.lastError)
+        XCTAssertTrue(store.enableShaderCache)
+    }
+
+    @MainActor
     func testUpdatesKnownSettingsWithoutDroppingUnknownConfiguration() throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("SolEngineConfigTests-\(UUID().uuidString)", isDirectory: true)

@@ -248,7 +248,7 @@ struct LauncherView: View {
                     onRevealGameData: viewModel.revealGameDataDirectory
                 )
                 .frame(maxWidth: .infinity)
-                .frame(height: 326)
+                .frame(height: GameCarouselView.preferredHeight)
                 .padding(.horizontal, 20)
                 .padding(.bottom, 16)
             }

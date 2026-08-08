@@ -11,8 +11,8 @@ settings:
   base:
     ARCHS: arm64
     SWIFT_VERSION: "5.9"
-    MARKETING_VERSION: "0.2.0"
-    CURRENT_PROJECT_VERSION: "3"
+    MARKETING_VERSION: "0.2.1"
+    CURRENT_PROJECT_VERSION: "4"
 
 schemes:
   Sol:
@@ -129,6 +129,7 @@ targets:
                 - nsz
         CFBundleDocumentTypes:
           - CFBundleTypeName: Sol Game
+            CFBundleTypeRole: Viewer
             LSHandlerRank: Owner
             LSItemContentTypes:
               - com.solemu.app.nsp

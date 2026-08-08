@@ -79,10 +79,13 @@ internal static class NativeBackendManagement
                     break;
                 case VerifyFirmwareArgument:
                     RequireSource(source, operation);
+                    PublishFirmwarePreparation("verify-firmware");
+                    using (NativeFirmwarePackage package = NativeFirmwarePackage.Prepare(source!))
                     using (VirtualFileSystem fileSystem = VirtualFileSystem.CreateInstance())
                     {
                         ContentManager manager = new(fileSystem);
-                        string? version = manager.VerifyFirmwarePackage(source!)?.VersionString;
+                        PublishPreparedFirmware(package, "verify-firmware");
+                        string? version = manager.VerifyFirmwarePackage(package.SourcePath)?.VersionString;
                         if (string.IsNullOrWhiteSpace(version))
                         {
                             throw new InvalidDataException(
@@ -101,10 +104,19 @@ internal static class NativeBackendManagement
                     break;
                 case InstallFirmwareArgument:
                     RequireSource(source, operation);
+                    PublishFirmwarePreparation("install-firmware");
+                    using (NativeFirmwarePackage package = NativeFirmwarePackage.Prepare(source!))
                     using (VirtualFileSystem fileSystem = VirtualFileSystem.CreateInstance())
                     {
                         ContentManager manager = new(fileSystem);
-                        string? version = manager.VerifyFirmwarePackage(source!)?.VersionString;
+                        PublishPreparedFirmware(package, "install-firmware");
+                        string? version = manager.VerifyFirmwarePackage(package.SourcePath)?.VersionString;
+                        if (string.IsNullOrWhiteSpace(version))
+                        {
+                            throw new InvalidDataException(
+                                "The selected package did not contain valid firmware."
+                            );
+                        }
                         NativeSessionProtocol.Publish(new NativeSessionEvent
                         {
                             Event = "backend.operation",
@@ -113,7 +125,7 @@ internal static class NativeBackendManagement
                             FirmwareVersion = version,
                             Message = $"Installing firmware {version ?? "unknown"}…",
                         });
-                        manager.InstallFirmware(source!);
+                        manager.InstallFirmware(package.SourcePath);
                         string? registeredVersion =
                             manager.GetCurrentFirmwareVersion()?.VersionString;
                         if (!string.Equals(
@@ -207,12 +219,70 @@ internal static class NativeBackendManagement
                 Event = "backend.operation",
                 Operation = OperationName(operation),
                 Success = false,
-                Message = exception.Message,
+                Message = UserFacingError(operation, exception),
             });
             exitCode = 1;
         }
 
         return true;
+    }
+
+    private static void PublishFirmwarePreparation(string operation)
+    {
+        NativeSessionProtocol.Publish(new NativeSessionEvent
+        {
+            Event = "backend.operation",
+            Operation = operation,
+            Success = null,
+            Message = "Preparing firmware package…",
+        });
+    }
+
+    private static void PublishPreparedFirmware(
+        NativeFirmwarePackage package,
+        string operation
+    )
+    {
+        if (!package.WasStaged)
+        {
+            return;
+        }
+
+        NativeSessionProtocol.Publish(new NativeSessionEvent
+        {
+            Event = "backend.operation",
+            Operation = operation,
+            Success = null,
+            Count = package.NcaCount,
+            Message = $"Prepared {package.NcaCount} firmware archive(s) for verification.",
+        });
+    }
+
+    private static string UserFacingError(string? operation, Exception exception)
+    {
+        if ((operation == VerifyFirmwareArgument || operation == InstallFirmwareArgument) &&
+            ExceptionChainContains(exception, "ResultFsOutOfRange"))
+        {
+            return
+                "Sol could not read one or more firmware archives. The package may be " +
+                "incomplete, or the installed prod.keys may not match this firmware dump. " +
+                "Re-dump both from the same console and try the ZIP or extracted folder again.";
+        }
+
+        return exception.Message;
+    }
+
+    private static bool ExceptionChainContains(Exception exception, string value)
+    {
+        for (Exception? current = exception; current is not null; current = current.InnerException)
+        {
+            if (current.Message.Contains(value, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static void EnsureConfiguration()

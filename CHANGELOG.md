@@ -37,7 +37,7 @@
 
 - Included the complete patched Sol Engine source in the repository and GitHub
   source archives.
-- Removed the external Ryubing clone step from normal builds.
+- Removed the external upstream clone step from normal builds.
 - Added source-integrity checks for the pinned engine revision and native patch
   set.
 

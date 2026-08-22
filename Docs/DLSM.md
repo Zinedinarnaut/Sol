@@ -97,7 +97,7 @@ gameplay again.
 
 ### Current validation snapshot
 
-A live Mario Kart 8 Deluxe race repeatedly identified the same
+A live, fast-moving 60 FPS scene repeatedly identified the same
 `D32Float 1920×1080` depth family. It reached a `stable` label at 94–95%
 confidence when its two-step presentation chain was visible, with exact-size,
 read-later, and 97–100% scene-pairing evidence. The scene-color family remains
@@ -129,21 +129,21 @@ the next launch.
 
 The block matcher has a real-GPU regression test that checks motion direction and
 passes its depth, motion, and reactive textures through
-`MTLFXTemporalScaler`. A packaged Mario Kart 8 Deluxe run then exercised more
+`MTLFXTemporalScaler`. A packaged run of the same validation title then exercised more
 than 8,000 reconstructed Temporal frames across camera motion, particles,
 transparent item boxes, and hard scene changes without reproducing the earlier
 split-frame corruption. The observed DLSM command-buffer average was about
 8.3 ms in the heavier animated scene on the current test machine. This is one
 title and one Apple GPU, so it is an acceptance baseline rather than a
 universal quality claim. A later live regression reproduced ghosting on pulsing
-Mario Kart title-screen UI, so these earlier stability runs no longer justify
+the title screen's pulsing UI, so these earlier stability runs no longer justify
 enabling the heuristic in production.
 
 ### Sol Temporal v1 validation
 
 The sequence-trained v1 provider used 480 local quarter-resolution luminance
-frames and 478 adjacent pairs from two title-labelled sessions. Mario Kart 8
-Deluxe was held out as an entire title. Its held-out sequence motion error
+frames and 478 adjacent pairs from two title-labelled sessions. The validation
+title was held out in full. Its held-out sequence motion error
 fell from v0's 1.335 to 1.207 input pixels, a 9.6% improvement, while the
 frozen reactive branch preserved v0's synthetic safety metrics.
 

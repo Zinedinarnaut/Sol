@@ -76,7 +76,7 @@ Its held-out synthetic validation measured:
 
 The high recall is intentional for this first safety-biased candidate:
 questionable history is rejected even when that gives up some temporal
-sharpness. In a signed Mario Kart 8 Deluxe run, the full DLSM Temporal command
+sharpness. In a signed validation run, the full DLSM Temporal command
 buffer averaged about 7.2 ms over more than 6,000 frames. Hard cuts, pulsing
 title UI, fast camera motion, particles, stop, and relaunch did not reproduce
 the prior double-image artifact.
@@ -89,7 +89,7 @@ local sequence suite:
 - 478 genuine adjacent-frame pairs;
 - a dense offline block-flow teacher with forward/backward consistency,
   photometric residual, texture ambiguity, and cut reactivity;
-- a complete Mario Kart 8 Deluxe title holdout rather than a random frame
+- a complete title holdout rather than a random frame
   split.
 
 On that unseen title, sequence motion error improved from 1.335 to 1.207 input
@@ -136,7 +136,7 @@ A model is not ready merely because it runs. It must:
 6. pass a fixed capture suite plus live multi-title validation.
 
 The current packaged baseline is roughly 8.3 ms of total reconstructed
-Temporal GPU work in a heavy animated Mario Kart 8 Deluxe scene at the
+Temporal GPU work in a heavy animated gameplay scene at the
 Performance preset. Model experiments report their own estimator cost and
 end-to-end DLSM cost separately so an apparent quality gain cannot hide a
 frame-time regression.

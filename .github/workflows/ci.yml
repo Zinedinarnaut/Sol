@@ -21,6 +21,9 @@ jobs:
       - name: Audit public source
         run: ./script/audit_public_source.sh
 
+      - name: Audit product-facing naming
+        run: ./script/audit_public_branding.sh
+
       - name: Run tests
         run: swift test
 

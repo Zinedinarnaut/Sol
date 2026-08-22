@@ -1,16 +1,16 @@
 # Sol
 
-Sol is a native macOS frontend and bundled emulation engine for Apple Silicon.
-The library, setup flow, controller mapping, profiles, settings, launch progress,
-and session controls are written in SwiftUI and AppKit. Games render into an
-AppKit-owned Metal surface through Sol Engine, Vulkan, and MoltenVK—there is no
-Avalonia application hiding behind the native window.
+Sol is a native macOS game-compatibility frontend and bundled emulation engine
+for Apple Silicon. The library, setup flow, controller mapping, profiles,
+settings, launch progress, and session controls are written in SwiftUI and
+AppKit. Games render into an AppKit-owned Metal surface through Sol Engine,
+Vulkan, and MoltenVK.
 
 [![CI](https://github.com/Zinedinarnaut/Sol/actions/workflows/ci.yml/badge.svg)](https://github.com/Zinedinarnaut/Sol/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/Zinedinarnaut/Sol?include_prereleases)](https://github.com/Zinedinarnaut/Sol/releases)
 [![License](https://img.shields.io/github/license/Zinedinarnaut/Sol)](LICENSE)
 
-![Sol home screen](Docs/Images/sol-home.jpg)
+![Sol graphics settings](Docs/Images/sol-settings.jpg)
 
 Sol is young, but it is a complete project rather than a skin for another app.
 Every clone contains the native frontend, the UI-free Sol Engine host, the
@@ -43,17 +43,13 @@ identity is available. Sol never asks users to disable Gatekeeper globally.
 - Local and internet multiplayer controls connected to the selected profile
 - Playtime saved during a session, not only after a clean quit
 - Exact-match, high-resolution cover and hero artwork with a local cache
-- Amiibo catalog browsing, Spotlight, widgets, Quick Look, Share, and `sol://`
+- NFC-figure catalog browsing, Spotlight, widgets, Quick Look, Share, and `sol://`
 - Sign in with Apple and iCloud profile linking in provisioned builds
 - Verified GitHub update downloads with a native toolbar update button
 
-![Sol library](Docs/Images/sol-library.jpg)
+![Sol controller mapping](Docs/Images/sol-controllers.jpg)
 
-![Sol game details](Docs/Images/sol-game-detail.jpg)
-
-The screenshots show the interface with a local test library. No games,
-artwork files, keys, firmware, or other system content are distributed in this
-repository or in Sol releases.
+Sol never ships games, artwork, keys, firmware, or other system content.
 
 ## First run
 
@@ -112,17 +108,17 @@ Sources/
 NativeHost/
   Sol.Engine/          UI-free managed Sol Engine entry point
   Sol.Engine.NativeHost/  Stable native ABI bridge
-Vendor/Ryubing/        Pinned, buildable upstream engine source
+Vendor/                Pinned, buildable upstream engine source
 script/
   patches/             Reviewable upstream changes used by Sol Engine
 Tests/SolTests/        Swift regression and boundary tests
 Docs/                  Architecture, development, research, and release notes
 ```
 
-The engine source is based on upstream commit
+The engine source is pinned to upstream commit
 `a82350bb774f70fcbd41c9987bf67a3775409963`. Generated engine artifacts are
 ignored; the source compiled into Sol is included in each clone and source
-archive. The boundary is documented in
+archive. Its origin, license, and integration boundary are documented in
 [Sol Engine architecture](Docs/SOL_ENGINE_ARCHITECTURE.md).
 
 ## DLSM
@@ -133,9 +129,8 @@ validated. Spatial uses MetalFX and is the current clean baseline. Temporal
 reconstruction and frame generation remain research paths until they have
 correct, game-aware depth, motion, jitter, camera, and timing inputs.
 
-The current M4 10-core GPU baseline used Pokémon Legends: Arceus v1.1.1 on the
-same warmed language screen. DLSM Quality rendered 2026 × 1103 → 3024 × 1646,
-55.1% fewer internal pixels.
+The current M4 10-core GPU baseline used the same warmed, 30 FPS test scene.
+DLSM Quality rendered 2026 × 1103 → 3024 × 1646, 55.1% fewer internal pixels.
 
 | Mode | Source → output FPS | GPU busy | DLSM GPU median / p95 | Metal memory | Process CPU<sup>*</sup> |
 | --- | ---: | ---: | ---: | ---: | ---: |
@@ -156,14 +151,18 @@ scene is still needed. The complete status and validation gates live in
 ## Privacy and legal
 
 Sol has no analytics service. Network requests are limited to features the user
-opens or enables: artwork metadata, Amiibo data, multiplayer, updates, and Apple
+opens or enables: artwork metadata, NFC-figure data, multiplayer, updates, and Apple
 account/iCloud services. Games, keys, firmware, saves, and room credentials stay
 local.
 
-Sol Engine builds on the MIT-licensed Ryujinx/Ryubing codebase. Attribution and
-dependency licenses are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and
-are embedded in packaged apps. Sol is an independent project and is not
-affiliated with or endorsed by Apple, Nintendo, Ryujinx, or Ryubing.
+Sol Engine builds on MIT-licensed third-party components. Copyright notices,
+source provenance, and dependency licenses are in
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and are embedded in packaged
+apps. Sol is independent and is not affiliated with or endorsed by its
+upstream projects, platform vendors, or game publishers.
+
+Product-facing naming follows [the public naming policy](Docs/PUBLIC_NAMING.md).
+Required upstream names stay in technical provenance and legal notices.
 
 ## Contributing
 

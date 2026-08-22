@@ -40,11 +40,11 @@ struct AmiiboPickerView: View {
 
             Group {
                 if isLoading {
-                    ProgressView("Updating Amiibo catalog…")
+                    ProgressView("Updating NFC figure catalog…")
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if let loadError {
                     ContentUnavailableView(
-                        "Amiibo Catalog Unavailable",
+                        "NFC Figure Catalog Unavailable",
                         systemImage: "wave.3.right.slash",
                         description: Text(loadError)
                     )
@@ -77,7 +77,7 @@ struct AmiiboPickerView: View {
     private var header: some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
-                Text("Scan Amiibo")
+                Text("Scan NFC Figure")
                     .font(.title2.weight(.semibold))
                 Text(viewModel.session.title ?? viewModel.selectedGame?.title ?? "Active game")
                     .font(.subheadline)
@@ -163,7 +163,7 @@ struct AmiiboPickerView: View {
             .padding(24)
         } else {
             ContentUnavailableView(
-                "Select an Amiibo",
+                "Select an NFC Figure",
                 systemImage: "wave.3.right.circle",
                 description: Text("Choose an item from the catalog to scan it.")
             )

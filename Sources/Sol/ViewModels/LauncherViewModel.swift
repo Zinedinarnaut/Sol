@@ -772,7 +772,7 @@ final class LauncherViewModel: ObservableObject {
             appendSystem(event.message ?? "First Metal frame presented")
         case "amiibo.scanned":
             isAmiiboScanPending = false
-            amiiboStatusMessage = event.message ?? "Amiibo scanned"
+            amiiboStatusMessage = event.message ?? "NFC figure scanned"
             isAmiiboPickerPresented = false
         case "fullscreen.requested":
             if let fullscreen = event.fullscreen {
@@ -798,7 +798,7 @@ final class LauncherViewModel: ObservableObject {
             appendSystem(event.message ?? "Native Sol Engine error")
             if event.command == "scan-amiibo" {
                 isAmiiboScanPending = false
-                amiiboStatusMessage = event.message ?? "The Amiibo could not be scanned."
+                amiiboStatusMessage = event.message ?? "The NFC figure could not be scanned."
             }
         default:
             break

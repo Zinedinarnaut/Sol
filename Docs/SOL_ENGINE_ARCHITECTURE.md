@@ -44,7 +44,7 @@ extensions remain sandboxed. See [`SECURITY_MODEL.md`](SECURITY_MODEL.md).
    existing Cocoa surface while MoltenVK presents the Vulkan renderer through
    Apple's native window stack. SDL is a platform and input layer here, not an
    application UI toolkit.
-5. Software-keyboard, confirmation, controller, error, and Amiibo applet
+5. Software-keyboard, confirmation, controller, error, and NFC-figure applet
    prompts cross the protocol and are presented as native AppKit dialogs.
 6. Controller discovery and player routing use the engine's SDL device IDs;
    the native Controller pane can install default Sol Engine mappings for players

@@ -159,7 +159,7 @@ actor AmiiboCatalogService {
         case invalidResponse
 
         var errorDescription: String? {
-            "The Amiibo catalog returned an invalid response."
+            "The NFC figure catalog returned an invalid response."
         }
     }
 }

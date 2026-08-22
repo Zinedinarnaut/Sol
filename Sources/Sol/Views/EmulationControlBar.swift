@@ -37,11 +37,11 @@ struct EmulationControlBar: View {
             .help("Take Screenshot")
 
             Button(action: viewModel.showAmiiboPicker) {
-                Label("Scan Amiibo", systemImage: "wave.3.right.circle")
+                Label("Scan NFC Figure", systemImage: "wave.3.right.circle")
                     .labelStyle(.iconOnly)
             }
             .disabled(!viewModel.canScanAmiibo)
-            .help("Scan Amiibo")
+            .help("Scan NFC Figure")
 
             HStack(spacing: 7) {
                 Image(systemName: volumeSymbol)

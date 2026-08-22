@@ -5,7 +5,7 @@
 <h1 align="center">Sol</h1>
 
 <p align="center">
-  Native macOS emulation, built for Apple Silicon.
+  An independent Nintendo Switch emulator for Apple Silicon Macs.
 </p>
 
 <p align="center">
@@ -166,8 +166,10 @@ credentials stay local.
 Sol Engine builds on MIT-licensed third-party components. Copyright notices,
 source provenance, and dependency licenses are in
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and are embedded in packaged
-apps. Sol is independent and is not affiliated with or endorsed by its
-upstream projects, platform vendors, or game publishers.
+apps.
+
+Sol is independent and is not affiliated with or endorsed by Nintendo.
+Nintendo Switch is a trademark of Nintendo.
 
 Product copy follows [the public naming policy](Docs/PUBLIC_NAMING.md). Required
 upstream names stay in technical provenance and legal notices.

@@ -1,76 +1,84 @@
-# Sol
+<p align="center">
+  <img src="Docs/Images/sol-logo.png" width="144" height="144" alt="Sol logo">
+</p>
 
-Sol is a native macOS game-compatibility frontend and bundled emulation engine
-for Apple Silicon. The library, setup flow, controller mapping, profiles,
-settings, launch progress, and session controls are written in SwiftUI and
-AppKit. Games render into an AppKit-owned Metal surface through Sol Engine,
-Vulkan, and MoltenVK.
+<h1 align="center">Sol</h1>
 
-[![CI](https://github.com/Zinedinarnaut/Sol/actions/workflows/ci.yml/badge.svg)](https://github.com/Zinedinarnaut/Sol/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/Zinedinarnaut/Sol?include_prereleases)](https://github.com/Zinedinarnaut/Sol/releases)
-[![License](https://img.shields.io/github/license/Zinedinarnaut/Sol)](LICENSE)
+<p align="center">
+  Native macOS emulation, built for Apple Silicon.
+</p>
 
-![Sol graphics settings](Docs/Images/sol-settings.jpg)
+<p align="center">
+  <a href="https://github.com/Zinedinarnaut/Sol/actions/workflows/ci.yml"><img src="https://github.com/Zinedinarnaut/Sol/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
+  <a href="https://github.com/Zinedinarnaut/Sol/releases"><img src="https://img.shields.io/github/v/release/Zinedinarnaut/Sol?include_prereleases" alt="Latest release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/Zinedinarnaut/Sol" alt="License"></a>
+</p>
 
-Sol is young, but it is a complete project rather than a skin for another app.
-Every clone contains the native frontend, the UI-free Sol Engine host, the
-patched engine source, and the runtime packaging needed to build the app.
+<p align="center">
+  <a href="https://github.com/Zinedinarnaut/Sol/releases"><strong>Download the latest preview</strong></a>
+  ·
+  <a href="#build-from-source">Build from source</a>
+  ·
+  <a href="https://github.com/Zinedinarnaut/Sol/issues">Report a bug</a>
+</p>
+
+Sol is a SwiftUI and AppKit frontend with a bundled, UI-free Sol Engine. The
+app owns the library, setup, profiles, controller mapping, launch progress, and
+game controls. Games render into an AppKit-owned Metal surface through the
+current Vulkan and MoltenVK backend.
+
+This is an early developer preview for Apple Silicon Macs running macOS 15 or
+later. It is usable, but compatibility and repeated-session stability are still
+being widened with every release.
 
 ## Download
 
-Download the latest macOS disk image from
-[GitHub Releases](https://github.com/Zinedinarnaut/Sol/releases).
+Get the current disk image from [GitHub Releases](https://github.com/Zinedinarnaut/Sol/releases).
 
 1. Open `Sol-<version>-macOS.dmg`.
 2. Drag Sol to Applications.
-3. Open Sol. The current developer-preview build is ad-hoc signed and not yet
-   notarized, so macOS may block the first launch.
-4. If it is blocked, open **System Settings → Privacy & Security** and choose
-   **Open Anyway** for Sol.
+3. Open Sol.
 
-The release also includes a SHA-256 checksum. A Developer ID signed and
-notarized build will replace this interim install path once the distribution
-identity is available. Sol never asks users to disable Gatekeeper globally.
+Preview builds are ad-hoc signed and not yet notarized. If macOS blocks the
+first launch, open **System Settings → Privacy & Security** and choose
+**Open Anyway** for Sol. Sol never asks you to disable Gatekeeper globally.
 
-## What is here today
+## What works
 
-- Native Home, Library, Game Detail, Settings, Profiles, and launch surfaces
-- Direct launch through the bundled Sol Engine with no separate engine install
-- Real shader/cache/engine progress instead of a blank loading window
+- Native Home, Library, Game Detail, Settings, Profiles, and launch screens
+- Bundled Sol Engine with no separate engine checkout or frontend to install
+- Keys, firmware, DLC, title updates, content folders, mods, and cheats
+- Keyboard and controller assignment with saved per-player mappings
+- Shader and cache progress instead of a blank launch window
 - Pause, resume, stop, fullscreen, VSync, volume, screenshots, and Game Mode
-- Keyboard and controller assignment with saved per-player remapping
-- Keys, firmware, DLC, title-update, and content-folder management
-- Local and internet multiplayer controls connected to the selected profile
-- Playtime saved during a session, not only after a clean quit
-- Exact-match, high-resolution cover and hero artwork with a local cache
-- NFC-figure catalog browsing, Spotlight, widgets, Quick Look, Share, and `sol://`
-- Sign in with Apple and iCloud profile linking in provisioned builds
-- Verified GitHub update downloads with a native toolbar update button
+- Playtime checkpoints that survive a crash or forced quit
+- Local and internet multiplayer controls tied to the selected profile
+- High-resolution cover and background artwork with a local cache
+- NFC-figure browsing, Spotlight, widgets, Quick Look, Share, and `sol://`
+- Native GitHub update checks with verified downloads
 
-![Sol controller mapping](Docs/Images/sol-controllers.jpg)
-
-Sol never ships games, artwork, keys, firmware, or other system content.
+Sol releases do not include games, artwork, keys, firmware, or other system
+content.
 
 ## First run
 
 1. Open Settings and choose the folder containing your own game backups.
 2. Under System, install keys and firmware sourced from hardware you own.
-3. Add DLC and title updates under Content if a game needs them.
+3. Add DLC or title updates under Content when needed.
 4. Assign a keyboard or controller under Controllers.
 5. Pick a game and press Play.
 
 Sol keeps its engine state in `~/Library/Application Support/Sol`. It does not
-inspect another emulator's folders at startup. If you already have compatible
+inspect another emulator's folders automatically. To bring over compatible
 keys, firmware, profiles, or saves, use **Settings → System → Import Existing
-Data…** and choose the old data folder yourself. Sol copies missing items and
-does not replace files already in its own directory.
-
-Sol requires an Apple Silicon Mac running macOS 15 or later.
+Data…** and choose the old data folder yourself. Existing Sol files are not
+overwritten.
 
 ## Build from source
 
-The generated Xcode project is checked in. A normal build does not need a
-separate engine checkout or a system-wide .NET installation.
+The generated Xcode project and the complete engine source are checked in. The
+setup script installs a project-local .NET SDK, so it does not change your
+system-wide installation.
 
 ```bash
 git clone https://github.com/Zinedinarnaut/Sol.git
@@ -89,48 +97,46 @@ Run the regression suite with:
 
 ```bash
 swift test
+./script/audit_public_source.sh
+./script/audit_public_branding.sh
 ```
 
-On a Mac with a provisioned Apple Development identity, omit
-`SOL_APPLE_SIGNING=off` to build and launch the signed app. See
-[Development](Docs/DEVELOPMENT.md) for engine-only builds, project generation,
-sandbox audits, troubleshooting, and release checks.
+On a Mac with an Apple Development identity, omit `SOL_APPLE_SIGNING=off` to
+build and launch a signed app. [Development](Docs/DEVELOPMENT.md) covers
+engine-only builds, project generation, sandbox audits, and troubleshooting.
 
-## Project map
+## Project layout
 
 ```text
-Sources/
-  Sol/                 Native macOS app, services, models, and views
-  SolDLSM/             Metal and MetalFX reconstruction library
-  SolWidgets/          Widget extension
-  SolQuickLook/        Finder Quick Look extension
-  SolShare/            Share extension
-NativeHost/
-  Sol.Engine/          UI-free managed Sol Engine entry point
-  Sol.Engine.NativeHost/  Stable native ABI bridge
-Vendor/                Pinned, buildable upstream engine source
-script/
-  patches/             Reviewable upstream changes used by Sol Engine
-Tests/SolTests/        Swift regression and boundary tests
-Docs/                  Architecture, development, research, and release notes
+Sources/Sol/                       macOS app, services, models, and views
+Sources/SolDLSM/                   Metal and MetalFX reconstruction library
+Sources/SolWidgets/                widget extension
+Sources/SolQuickLook/              Finder Quick Look extension
+Sources/SolShare/                  share extension
+NativeHost/Sol.Engine/             UI-free managed engine host
+NativeHost/Sol.Engine.NativeHost/  stable native ABI bridge
+Vendor/                            pinned, buildable engine source
+script/                            build, audit, packaging, and patch tools
+Tests/SolTests/                    Swift regression and boundary tests
+Docs/                              architecture, development, and research notes
 ```
 
 The engine source is pinned to upstream commit
-`a82350bb774f70fcbd41c9987bf67a3775409963`. Generated engine artifacts are
-ignored; the source compiled into Sol is included in each clone and source
-archive. Its origin, license, and integration boundary are documented in
+`a82350bb774f70fcbd41c9987bf67a3775409963`. Its origin, license, and native
+integration boundary are documented in
 [Sol Engine architecture](Docs/SOL_ENGINE_ARCHITECTURE.md).
 
 ## DLSM
 
 DLSM (Deep Learning Super Metal) is Sol's Apple-Silicon graphics research
-layer. Public builds keep it disabled while the developer pipeline is being
-validated. Spatial uses MetalFX and is the current clean baseline. Temporal
-reconstruction and frame generation remain research paths until they have
-correct, game-aware depth, motion, jitter, camera, and timing inputs.
+layer. Public builds keep it disabled while Spatial, Temporal reconstruction,
+and frame generation are validated against correct game-aware inputs.
 
-The current M4 10-core GPU baseline used the same warmed, 30 FPS test scene.
-DLSM Quality rendered 2026 × 1103 → 3024 × 1646, 55.1% fewer internal pixels.
+<details>
+<summary><strong>M4 10-core GPU benchmark snapshot</strong></summary>
+
+The same warmed, 30 FPS scene was rendered at 2026 × 1103 and presented at
+3024 × 1646, reducing the internal pixel count by 55.1%.
 
 | Mode | Source → output FPS | GPU busy | DLSM GPU median / p95 | Metal memory | Process CPU<sup>*</sup> |
 | --- | ---: | ---: | ---: | ---: | ---: |
@@ -141,19 +147,21 @@ DLSM Quality rendered 2026 × 1103 → 3024 × 1646, 55.1% fewer internal pixels
 
 <sup>*</sup> 100% CPU is one fully occupied CPU core.
 
-Spatial held 30 FPS with about 12% less GPU activity in this capped scene.
-Temporal added cost without a performance benefit, and frame generation raised
-output to 43.2 FPS while lowering real rendering to 21.6 FPS. This measures
-pipeline overhead, not a general performance uplift; an unlocked, GPU-bound
-scene is still needed. The complete status and validation gates live in
-[DLSM.md](Docs/DLSM.md).
+Spatial held 30 FPS with about 12% less GPU activity. Temporal added cost
+without improving this capped scene, while Frame Generation raised displayed
+output to 43.2 FPS and lowered real rendering to 21.6 FPS. This measures
+pipeline overhead, not a general performance uplift.
+
+</details>
+
+The full status and acceptance gates are in [DLSM.md](Docs/DLSM.md).
 
 ## Privacy and legal
 
-Sol has no analytics service. Network requests are limited to features the user
-opens or enables: artwork metadata, NFC-figure data, multiplayer, updates, and Apple
-account/iCloud services. Games, keys, firmware, saves, and room credentials stay
-local.
+Sol has no analytics service. Network access is limited to features you open or
+enable, including artwork metadata, NFC-figure data, multiplayer, updates, and
+Apple account or iCloud services. Games, keys, firmware, saves, and room
+credentials stay local.
 
 Sol Engine builds on MIT-licensed third-party components. Copyright notices,
 source provenance, and dependency licenses are in
@@ -161,11 +169,11 @@ source provenance, and dependency licenses are in
 apps. Sol is independent and is not affiliated with or endorsed by its
 upstream projects, platform vendors, or game publishers.
 
-Product-facing naming follows [the public naming policy](Docs/PUBLIC_NAMING.md).
-Required upstream names stay in technical provenance and legal notices.
+Product copy follows [the public naming policy](Docs/PUBLIC_NAMING.md). Required
+upstream names stay in technical provenance and legal notices.
 
 ## Contributing
 
-Bug reports and focused pull requests are welcome. Please read
-[CONTRIBUTING.md](CONTRIBUTING.md) first, keep protected content out of reports,
-and describe the launch/render/stop/relaunch path you tested for session work.
+Bug reports and focused pull requests are welcome. Read
+[CONTRIBUTING.md](CONTRIBUTING.md), keep protected content out of reports, and
+include the launch, render, stop, and relaunch path you tested for session work.

@@ -176,7 +176,6 @@ Sol Cloud never uploads games, keys, firmware, DLC or update packages, caches,
 shaders, logs, security bookmarks, controller identifiers, room credentials,
 or device paths. [Security and capabilities](Docs/SECURITY_MODEL.md) documents
 the exact boundary.
-
 Sol Engine builds on MIT-licensed third-party components. Copyright notices,
 source provenance, and dependency licenses are in
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and are embedded in packaged

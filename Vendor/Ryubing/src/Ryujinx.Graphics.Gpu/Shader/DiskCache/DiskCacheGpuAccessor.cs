@@ -47,7 +47,7 @@ namespace Ryujinx.Graphics.Gpu.Shader.DiskCache
             _oldSpecState = oldSpecState;
             _newSpecState = newSpecState;
             _stageIndex = stageIndex;
-            _isVulkan = context.Capabilities.Api == TargetApi.Vulkan;
+            _isVulkan = context.Capabilities.Api.UsesSpirvLayout();
             _hasGeometryShader = hasGeometryShader;
             _supportsQuads = context.Capabilities.SupportsQuads;
 

@@ -221,7 +221,7 @@ namespace Ryujinx.Graphics.Shader.CodeGen.Spirv
 
                     bool tessCw = context.Definitions.TessCw;
 
-                    if (context.TargetApi == TargetApi.Vulkan)
+                    if (context.TargetApi.UsesSpirvLayout())
                     {
                         // We invert the front face on Vulkan backend, so we need to do that here as well.
                         tessCw = !tessCw;

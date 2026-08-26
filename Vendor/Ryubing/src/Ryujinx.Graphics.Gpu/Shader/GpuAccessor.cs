@@ -39,7 +39,7 @@ namespace Ryujinx.Graphics.Gpu.Shader
             _channel = channel;
             _state = state;
             _stageIndex = stageIndex;
-            _isVulkan = context.Capabilities.Api == TargetApi.Vulkan;
+            _isVulkan = context.Capabilities.Api.UsesSpirvLayout();
             _hasGeometryShader = hasGeometryShader;
             _supportsQuads = context.Capabilities.SupportsQuads;
 

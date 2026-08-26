@@ -23,6 +23,7 @@ namespace Ryujinx.Graphics.Gpu.Shader.DiskCache
         private const ushort FileFormatVersionMinor = 2;
         private const uint FileFormatVersionPacked = ((uint)FileFormatVersionMajor << 16) | FileFormatVersionMinor;
         private const uint CodeGenVersion = 7354;
+        private const uint SolMetalHostCacheVersion = 3;
 
         private const string SharedTocFileName = "shared.toc";
         private const string SharedDataFileName = "shared.data";
@@ -226,7 +227,9 @@ namespace Ryujinx.Graphics.Gpu.Shader.DiskCache
         /// <returns>Name of the file, without extension</returns>
         private static string GetHostFileName(GpuContext context)
         {
-            string apiName = context.Capabilities.Api.ToString().ToLowerInvariant();
+            string apiName = context.Capabilities.Api == TargetApi.Metal
+                ? $"metal{SolMetalHostCacheVersion}"
+                : context.Capabilities.Api.ToString().ToLowerInvariant();
             string vendorName = RemoveInvalidCharacters(context.Capabilities.VendorName.ToLowerInvariant());
             return $"{apiName}_{vendorName}";
         }
@@ -396,7 +399,7 @@ namespace Ryujinx.Graphics.Gpu.Shader.DiskCache
 
                             IProgram hostProgram;
 
-                            if (context.Capabilities.Api == TargetApi.Vulkan)
+                            if (context.Capabilities.Api.UsesSpirvLayout())
                             {
                                 ShaderSource[] shaderSources = ShaderBinarySerializer.Unpack(shaders, hostCode);
 

@@ -1,0 +1,7 @@
+Source: https://github.com/KhronosGroup/SPIRV-Cross
+Commit: 9c3c8e2cefdd8194b193bb8ed2fdff4d5527e382
+Vendored: 2026-08-09
+
+Sol vendors only the core, GLSL, and Metal Shading Language backend sources
+needed by the SolMetal shader translation boundary. The sources are compiled
+statically into SolMetal.dylib; no standalone SPIRV-Cross library is shipped.

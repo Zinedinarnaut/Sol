@@ -386,7 +386,7 @@ namespace Ryujinx.Graphics.Shader.Instructions
 
         private static bool TryConvertIdToIndexForVulkan(EmitterContext context, int attr, out Operand value)
         {
-            if (context.TranslatorContext.Options.TargetApi == TargetApi.Vulkan)
+            if (context.TranslatorContext.Options.TargetApi.UsesSpirvLayout())
             {
                 if (attr == AttributeConsts.InstanceId)
                 {

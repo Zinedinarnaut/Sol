@@ -85,7 +85,7 @@ namespace Ryujinx.Graphics.Shader.CodeGen.Spirv
 
             foreach (BufferDefinition buffer in buffers)
             {
-                int setIndex = context.TargetApi == TargetApi.Vulkan ? buffer.Set : 0;
+                int setIndex = context.TargetApi.UsesSpirvLayout() ? buffer.Set : 0;
                 int alignment = buffer.Layout == BufferLayout.Std140 ? 16 : 4;
                 int alignmentMask = alignment - 1;
                 int offset = 0;
@@ -158,7 +158,7 @@ namespace Ryujinx.Graphics.Shader.CodeGen.Spirv
         {
             foreach (TextureDefinition sampler in samplers)
             {
-                int setIndex = context.TargetApi == TargetApi.Vulkan ? sampler.Set : 0;
+                int setIndex = context.TargetApi.UsesSpirvLayout() ? sampler.Set : 0;
 
                 SpvInstruction imageType;
                 SpvInstruction sampledImageType;
@@ -227,7 +227,7 @@ namespace Ryujinx.Graphics.Shader.CodeGen.Spirv
         {
             foreach (TextureDefinition image in images)
             {
-                int setIndex = context.TargetApi == TargetApi.Vulkan ? image.Set : 0;
+                int setIndex = context.TargetApi.UsesSpirvLayout() ? image.Set : 0;
 
                 Dim dim = GetDim(image.Type);
 

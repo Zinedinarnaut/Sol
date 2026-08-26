@@ -156,6 +156,7 @@ namespace Ryujinx.HLE.HOS.Kernel
             }
 
             TimeManager.Dispose();
+            KSynchronizationObject.ClearNodePool();
         }
     }
 }

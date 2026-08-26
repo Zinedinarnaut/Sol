@@ -16,7 +16,10 @@ namespace Ryujinx.Input.SDL3
     public class SDL3Keyboard : IKeyboard
     {
         private const int ExternalScancodeCount = 512;
+        private const int ExternalHeldMask = 1 << 0;
+        private const int ExternalPendingPressMask = 1 << 1;
         private static readonly int[] _externalKeyState = new int[ExternalScancodeCount];
+        private static int _externalInputMode;
         private readonly Lock _userMappingLock = new();
         private StandardKeyboardInputConfig _configuration;
         private readonly List<KeyboardInputMappingHelper.KeyboardButtonMapping> _buttonsUserMapping;
@@ -193,8 +196,37 @@ namespace Ryujinx.Input.SDL3
                 return false;
             }
 
-            Volatile.Write(ref _externalKeyState[scancode], pressed ? 1 : 0);
-            return true;
+            ref int state = ref _externalKeyState[scancode];
+            while (true)
+            {
+                int current = Volatile.Read(ref state);
+                int next;
+                if (pressed)
+                {
+                    // Preserve one rising edge until a keyboard snapshot
+                    // observes it. AppKit can deliver a complete down/up tap
+                    // between two guest input polls; a level-only bridge would
+                    // otherwise lose the press entirely. Repeats while held do
+                    // not re-arm the latch.
+                    if ((current & ExternalHeldMask) != 0)
+                    {
+                        return true;
+                    }
+                    next = current |
+                        ExternalHeldMask |
+                        ExternalPendingPressMask;
+                }
+                else
+                {
+                    next = current & ~ExternalHeldMask;
+                }
+
+                if (Interlocked.CompareExchange(ref state, next, current) ==
+                    current)
+                {
+                    return true;
+                }
+            }
         }
 
         public static void ClearExternalKeyState()
@@ -202,11 +234,41 @@ namespace Ryujinx.Input.SDL3
             Array.Clear(_externalKeyState);
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static bool IsExternalKeyPressed(int scancode)
+        /// <summary>
+        /// Makes the native host's explicit key bridge the sole keyboard state
+        /// source. Embedded Cocoa windows can otherwise report the same key
+        /// through both AppKit and SDL; if SDL misses one release edge, OR-ing
+        /// those states leaves movement held after the physical key is up.
+        /// </summary>
+        public static void SetExternalInputMode(bool enabled)
         {
-            return (uint)scancode < ExternalScancodeCount &&
-                Volatile.Read(ref _externalKeyState[scancode]) != 0;
+            // Clear on both transitions so a state from the previous owner can
+            // never bleed into a new embedded session or standalone window.
+            ClearExternalKeyState();
+            Volatile.Write(ref _externalInputMode, enabled ? 1 : 0);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static bool ConsumeExternalKeyPressed(int scancode)
+        {
+            if ((uint)scancode >= ExternalScancodeCount)
+            {
+                return false;
+            }
+
+            ref int state = ref _externalKeyState[scancode];
+            while (true)
+            {
+                int current = Volatile.Read(ref state);
+                bool pressed = (current &
+                    (ExternalHeldMask | ExternalPendingPressMask)) != 0;
+                int next = current & ~ExternalPendingPressMask;
+                if (Interlocked.CompareExchange(ref state, next, current) ==
+                    current)
+                {
+                    return pressed;
+                }
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -255,12 +317,14 @@ namespace Ryujinx.Input.SDL3
 
         public unsafe KeyboardStateSnapshot GetKeyboardStateSnapshot()
         {
-            SDLBool* rawKeyboardState;
-            SDL_Keymod rawKeyboardModifierState = SDL_GetModState();
+            bool externalInputMode = Volatile.Read(ref _externalInputMode) != 0;
+            SDLBool* rawKeyboardState = null;
+            SDL_Keymod rawKeyboardModifierState = SDL_Keymod.SDL_KMOD_NONE;
 
-            unsafe
+            if (!externalInputMode)
             {
                 rawKeyboardState = SDL_GetKeyboardState(null);
+                rawKeyboardModifierState = SDL_GetModState();
             }
 
             bool[] keysState = new bool[(int)ConfigPhysicalKey.Count];
@@ -279,14 +343,15 @@ namespace Ryujinx.Input.SDL3
 
                     int externalScancode = GetExternalModifierScancode(key);
                     keysState[(int)key] =
-                        (rawKeyboardModifierState & modifierMask) == modifierMask ||
-                        IsExternalKeyPressed(externalScancode);
+                        ConsumeExternalKeyPressed(externalScancode) ||
+                        (!externalInputMode &&
+                            (rawKeyboardModifierState & modifierMask) == modifierMask);
                 }
                 else
                 {
                     keysState[(int)key] =
-                        rawKeyboardState[index] ||
-                        IsExternalKeyPressed(index);
+                        ConsumeExternalKeyPressed(index) ||
+                        (!externalInputMode && rawKeyboardState[index]);
                 }
             }
 

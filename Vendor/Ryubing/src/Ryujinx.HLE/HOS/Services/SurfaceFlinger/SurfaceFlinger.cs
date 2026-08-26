@@ -19,7 +19,8 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 
         private readonly Dictionary<long, Layer> _layers;
 
-        private bool _isRunning;
+        private volatile bool _isRunning;
+        private bool _isDisposed;
 
         private readonly Thread _composerThread;
 
@@ -523,12 +524,43 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 
         public void Dispose()
         {
-            _isRunning = false;
-
-            foreach (Layer layer in _layers.Values)
+            if (_isDisposed)
             {
-                layer.Core.PrepareForExit();
+                return;
             }
+
+            _isDisposed = true;
+            _isRunning = false;
+            _event.Set();
+            _nextFrameEvent.Set();
+
+            lock (_lock)
+            {
+                foreach (Layer layer in _layers.Values)
+                {
+                    layer.Core.PrepareForExit();
+                }
+            }
+
+            if (!ReferenceEquals(Thread.CurrentThread, _composerThread))
+            {
+                _composerThread.Join();
+            }
+
+            lock (_lock)
+            {
+                foreach (Layer layer in _layers.Values)
+                {
+                    HOSBinderDriverServer.UnregisterBinderObject(layer.ProducerBinderId);
+                    layer.Consumer.Abandon();
+                }
+
+                _layers.Clear();
+                RenderLayerId = 0;
+            }
+
+            _event.Dispose();
+            _nextFrameEvent.Dispose();
         }
 
         public void OnFrameAvailable(ref BufferItem item)

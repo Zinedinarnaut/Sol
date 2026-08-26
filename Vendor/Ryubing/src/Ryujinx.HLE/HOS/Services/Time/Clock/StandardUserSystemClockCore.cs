@@ -68,6 +68,11 @@ namespace Ryujinx.HLE.HOS.Services.Time.Clock
             _autoCorrectionEvent = new KEvent(system.KernelContext);
         }
 
+        internal void ReleaseAutomaticCorrectionEvent()
+        {
+            _autoCorrectionEvent = null;
+        }
+
         public ResultCode SetAutomaticCorrectionEnabled(ITickSource tickSource, bool autoCorrectionEnabled)
         {
             ResultCode result = ApplyAutomaticCorrection(tickSource, autoCorrectionEnabled);

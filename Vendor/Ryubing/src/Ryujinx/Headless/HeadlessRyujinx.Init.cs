@@ -191,6 +191,23 @@ namespace Ryujinx.Headless
 
         private static IRenderer CreateRenderer(Options options, WindowBase window)
         {
+            if (IsSolMetalGalRequested())
+            {
+                if (SolMetalGalRenderer.TryCreateForEmbeddedSurface(
+                        NativeEmbeddedEntrypoint.MetalLayer,
+                        out SolMetalGalRenderer renderer,
+                        out string failure) && renderer is not null)
+                {
+                    NativeSessionProtocol.PublishLaunchProgress(
+                        "starting-solmetal-gal",
+                        "Starting the experimental native Metal renderer"
+                    );
+                    return renderer;
+                }
+                throw new InvalidOperationException(
+                    failure ?? "The experimental SolMetal GAL renderer is unavailable."
+                );
+            }
             if (options.GraphicsBackend == GraphicsBackend.Vulkan && window is VulkanWindow vulkanWindow)
             {
                 string preferredGpuId = string.Empty;
@@ -220,6 +237,15 @@ namespace Ryujinx.Headless
 
             return new OpenGLRenderer();
         }
+
+        private static bool IsSolMetalGalRequested() =>
+            NativeEmbeddedEntrypoint.IsEmbedded &&
+            OperatingSystem.IsMacOS() &&
+            string.Equals(
+                Environment.GetEnvironmentVariable("SOL_METAL_GAL_BACKEND"),
+                "1",
+                StringComparison.Ordinal
+            );
 
         private static Switch InitializeEmulationContext(WindowBase window, IRenderer renderer, Options options) =>
             new(

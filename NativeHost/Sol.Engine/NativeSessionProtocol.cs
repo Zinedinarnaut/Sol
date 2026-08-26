@@ -53,6 +53,9 @@ internal sealed class NativeSessionEvent
     public string? DefaultValue { get; init; }
     public int? MinimumLength { get; init; }
     public int? MaximumLength { get; init; }
+    public int? CursorBegin { get; init; }
+    public int? CursorEnd { get; init; }
+    public bool? OverwriteMode { get; init; }
     public string? InputId { get; init; }
     public string? InputName { get; init; }
     public string? InputKind { get; init; }
@@ -63,10 +66,63 @@ internal sealed class NativeSessionEvent
     public Dictionary<string, string>? Bindings { get; init; }
     public string? BindingName { get; init; }
     public string? BindingValue { get; init; }
+    public float? DeadzoneLeft { get; init; }
+    public float? DeadzoneRight { get; init; }
+    public float? RangeLeft { get; init; }
+    public float? RangeRight { get; init; }
+    public float? TriggerThreshold { get; init; }
+    public bool? MotionEnabled { get; init; }
+    public int? MotionSensitivity { get; init; }
+    public double? GyroDeadzone { get; init; }
+    public bool? RumbleEnabled { get; init; }
+    public float? StrongRumble { get; init; }
+    public float? WeakRumble { get; init; }
+    public bool? HdRumble { get; init; }
+    public bool? LedEnabled { get; init; }
+    public bool? LedOff { get; init; }
+    public bool? LedRainbow { get; init; }
+    public uint? LedColor { get; init; }
     public string? ProfileId { get; init; }
     public string? ProfileName { get; init; }
     public string? ProfileImageBase64 { get; init; }
     public bool? IsDefault { get; init; }
+    public bool? Playable { get; init; }
+    public uint? AbiVersion { get; init; }
+    public string? DeviceName { get; init; }
+    public uint? AppleGpuFamily { get; init; }
+    public uint? ArgumentBufferTier { get; init; }
+    public bool? UnifiedMemory { get; init; }
+    public bool? SupportsBcTextureCompression { get; init; }
+    public bool? SupportsRayTracing { get; init; }
+    public bool? SupportsBinaryArchives { get; init; }
+    public bool? SpirvTranslationReady { get; init; }
+    public bool? BufferResourcesReady { get; init; }
+    public bool? TextureResourcesReady { get; init; }
+    public bool? SamplerResourcesReady { get; init; }
+    public bool? ComputePipelinesReady { get; init; }
+    public bool? RenderPipelinesReady { get; init; }
+    public bool? RenderBindingsReady { get; init; }
+    public bool? IndexedDrawingReady { get; init; }
+    public bool? DepthStencilReady { get; init; }
+    public bool? BlendingReady { get; init; }
+    public bool? RasterizerStateReady { get; init; }
+    public bool? TimelineSynchronizationReady { get; init; }
+    public ulong? RecommendedWorkingSetBytes { get; init; }
+    public uint? TestsRun { get; init; }
+    public uint? TestsPassed { get; init; }
+    public ulong? BytesVerified { get; init; }
+    public uint? ShaderCacheHits { get; init; }
+    public uint? ShaderCacheMisses { get; init; }
+    public uint? BinaryArchivesCreated { get; init; }
+    public double? GpuMilliseconds { get; init; }
+    public string? OutputSignature { get; init; }
+    public long? ManagedLiveBytes { get; init; }
+    public long? ManagedHeapBytes { get; init; }
+    public long? ManagedCommittedBytes { get; init; }
+    public long? ManagedFragmentedBytes { get; init; }
+    public long? ProcessWorkingSetBytes { get; init; }
+    public int? HvAddressSpaces { get; init; }
+    public int? HvVcpus { get; init; }
     public int? Count { get; init; }
     public int? DlcCount { get; init; }
     public int? UpdateCount { get; init; }
@@ -93,6 +149,11 @@ internal sealed class NativeSessionEvent
     public int? ProgressTotal { get; init; }
     public double? PlaytimeSeconds { get; init; }
     public string? LastPlayedUtc { get; init; }
+    public string? ActivityId { get; init; }
+    public long? ActivityTimestamp { get; init; }
+    public string? ActivityRoom { get; init; }
+    public string? ActivityKind { get; init; }
+    public uint? ActivityVersion { get; init; }
     public NativeDialogOption[]? Options { get; init; }
     public string[]? Buttons { get; init; }
     public string[]? Capabilities { get; init; }
@@ -115,6 +176,7 @@ internal static class NativeSessionProtocol
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
     private static readonly object OutputLock = new();
+    private static readonly object ScreenshotLock = new();
     private static CancellationTokenSource _lifetime = new();
     private static Action<string>? _eventSink;
     private static volatile bool _stopping;
@@ -125,6 +187,11 @@ internal static class NativeSessionProtocol
     {
         CancellationTokenSource lifetime;
 
+        // The embedded host survives between games. Never let the previous
+        // renderer remain rooted by the screenshot event bridge while a new
+        // session is being prepared.
+        DetachScreenshotHandler();
+
         lock (OutputLock)
         {
             _lifetime.Cancel();
@@ -134,9 +201,10 @@ internal static class NativeSessionProtocol
             _eventSink = eventSink;
             _stopping = false;
             _lastSnapshot = null;
-            _screenshotRenderer = null;
             NativePlaytimeTracker.Reset();
         }
+
+        NativePlayActivityTracker.Start();
 
         Publish(new NativeSessionEvent
         {
@@ -162,13 +230,16 @@ internal static class NativeSessionProtocol
                 "profiles",
                 "set-profile",
                 "native-dialogs",
+                "native-inline-keyboard",
                 "playtime-tracking",
+                "play-activity",
                 "embedded-cocoa-view",
                 "dlsm-attachment-discovery",
                 "dlsm-provider-readiness",
                 "launch-progress",
                 "first-frame",
                 "scan-amiibo",
+                "solmetal-capability-probe",
             ],
         });
 
@@ -216,7 +287,9 @@ internal static class NativeSessionProtocol
     public static void Stop()
     {
         _stopping = true;
+        NativePlayActivityTracker.Stop();
         _lifetime.Cancel();
+        DetachScreenshotHandler();
         Publish(new NativeSessionEvent
         {
             Event = "host.stopping",
@@ -349,6 +422,15 @@ internal static class NativeSessionProtocol
             case "dialog-response":
                 NativeDialogBridge.Complete(root);
                 break;
+            case "inline-keyboard-update":
+                NativeDynamicTextInputBridge.Update(root);
+                break;
+            case "inline-keyboard-submit":
+                NativeDynamicTextInputBridge.Submit(root);
+                break;
+            case "inline-keyboard-cancel":
+                NativeDynamicTextInputBridge.Cancel(root);
+                break;
             default:
                 PublishError($"Unknown native command '{command}'.", command);
                 break;
@@ -451,13 +533,40 @@ internal static class NativeSessionProtocol
     {
         IRenderer? renderer = HeadlessRyujinx.GetNativeRenderer();
 
-        if (renderer is null || ReferenceEquals(renderer, _screenshotRenderer))
+        if (renderer is null || _stopping)
         {
             return;
         }
 
-        _screenshotRenderer = renderer;
-        renderer.ScreenCaptured += RendererScreenCaptured;
+        lock (ScreenshotLock)
+        {
+            if (_stopping || ReferenceEquals(renderer, _screenshotRenderer))
+            {
+                return;
+            }
+
+            if (_screenshotRenderer is { } previousRenderer)
+            {
+                previousRenderer.ScreenCaptured -= RendererScreenCaptured;
+            }
+
+            _screenshotRenderer = renderer;
+            renderer.ScreenCaptured += RendererScreenCaptured;
+        }
+    }
+
+    private static void DetachScreenshotHandler()
+    {
+        lock (ScreenshotLock)
+        {
+            if (_screenshotRenderer is not { } renderer)
+            {
+                return;
+            }
+
+            renderer.ScreenCaptured -= RendererScreenCaptured;
+            _screenshotRenderer = null;
+        }
     }
 
     private static void RendererScreenCaptured(object? sender, ScreenCaptureImageInfo image)
@@ -509,6 +618,19 @@ internal static class NativeSessionProtocol
 
 public partial class HeadlessRyujinx
 {
+    internal static void ReleaseCompletedNativeSessionReferences()
+    {
+        // These objects are recreated for every embedded launch. Their
+        // drivers have already been disposed by Load/WindowBase at this point;
+        // clearing the process-wide headless fields lets the in-process CLR
+        // reclaim the completed session instead of retaining it until the next
+        // launch.
+        _inputConfiguration = [];
+        _inputManager = null;
+        _accountManager = null;
+        _userChannelPersistence = null;
+    }
+
     internal static NativeSessionSnapshot GetNativeSessionSnapshot()
     {
         WindowBase? window = _window;

@@ -75,6 +75,14 @@ namespace Ryujinx.HLE.HOS
             ApplicationClient = Server.CreateHorizonClient(new ProgramLocation(programId, StorageId.BuiltInUser), npdm.FsAccessControlData, npdm.FsAccessControlDescriptor);
         }
 
+        public void ReleaseApplicationClient()
+        {
+            // The manager intentionally survives between embedded launches,
+            // but the application client owns per-title filesystem state.
+            // Drop that graph once the program has been unregistered.
+            ApplicationClient = null;
+        }
+
         private static AccessControlBits.Bits AccountFsPermissions => AccessControlBits.Bits.SystemSaveData |
                                                                       AccessControlBits.Bits.GameCard |
                                                                       AccessControlBits.Bits.SaveDataMeta |

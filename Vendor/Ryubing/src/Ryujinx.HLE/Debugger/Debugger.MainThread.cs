@@ -12,7 +12,10 @@ namespace Ryujinx.HLE.Debugger
     {
         private void MainLoop()
         {
-            IPEndPoint endpoint = new(IPAddress.Any, GdbStubPort);
+            // Sol only exposes the guest debugger to software on this Mac. A GDB
+            // stub has full control of the emulated process and must never become
+            // an unauthenticated listener on the local network.
+            IPEndPoint endpoint = new(IPAddress.Loopback, GdbStubPort);
             _listenerSocket = new TcpListener(endpoint);
             
             try

@@ -35,6 +35,14 @@ namespace Ryujinx.HLE.HOS.Services.Time
             timeSharedMemoryStorage.ZeroFill();
         }
 
+        public void Release()
+        {
+            _device = null;
+            _sharedMemory = null;
+            _timeSharedMemoryStorage = null;
+            _timeSharedMemorySize = 0;
+        }
+
         public KSharedMemory GetSharedMemory()
         {
             return _sharedMemory;

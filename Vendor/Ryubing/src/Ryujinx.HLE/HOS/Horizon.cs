@@ -556,9 +556,11 @@ namespace Ryujinx.HLE.HOS
                 if (LibHacHorizonManager.ApplicationClient != null)
                 {
                     LibHacHorizonManager.PmClient.Fs.UnregisterProgram(LibHacHorizonManager.ApplicationClient.Os.GetCurrentProcessId().Value).ThrowIfFailure();
+                    LibHacHorizonManager.ReleaseApplicationClient();
                 }
 
                 KernelContext.Dispose();
+                TimeServiceManager.Instance.ReleaseSessionResources();
             }
         }
 

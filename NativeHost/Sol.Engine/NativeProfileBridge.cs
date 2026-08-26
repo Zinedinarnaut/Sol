@@ -34,16 +34,16 @@ internal static class NativeProfileBridge
     private sealed class StoredProfile
     {
         [JsonPropertyName("user_id")]
-        public string? UserId { get; init; }
+        public string? UserId { get; set; }
 
         [JsonPropertyName("name")]
-        public string? Name { get; init; }
+        public string? Name { get; set; }
 
         [JsonPropertyName("last_modified_timestamp")]
-        public long LastModifiedTimestamp { get; init; }
+        public long LastModifiedTimestamp { get; set; }
 
         [JsonPropertyName("image")]
-        public byte[]? Image { get; init; }
+        public byte[]? Image { get; set; }
     }
 
     internal readonly record struct ProfileSummary(
@@ -163,6 +163,165 @@ internal static class NativeProfileBridge
         File.Move(temporaryPath, profilesPath, overwrite: true);
     }
 
+    public static string CreateProfile(string name, string? imageBase64)
+    {
+        ProfilesDocument document = LoadDocumentForEditing();
+        if (document.Profiles.Count >= 8)
+        {
+            throw new InvalidOperationException("Sol Engine supports up to 8 game users.");
+        }
+
+        string normalizedName = NormalizeName(name);
+        string userId = Guid.NewGuid().ToString("N");
+        document.Profiles.Add(new StoredProfile
+        {
+            UserId = userId,
+            Name = normalizedName,
+            LastModifiedTimestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+            Image = DecodeImage(imageBase64) ?? ReadEmbeddedImage(DefaultUserImage),
+        });
+        document.LastOpened ??= document.Profiles[0].UserId;
+        SaveDocument(document);
+        return userId;
+    }
+
+    public static void RenameProfile(string userId, string name)
+    {
+        ProfilesDocument document = LoadDocumentForEditing();
+        StoredProfile profile = FindStoredProfile(document, userId);
+        profile.Name = NormalizeName(name);
+        profile.LastModifiedTimestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        SaveDocument(document);
+    }
+
+    public static void SetProfileImage(string userId, string? imageBase64)
+    {
+        ProfilesDocument document = LoadDocumentForEditing();
+        StoredProfile profile = FindStoredProfile(document, userId);
+        profile.Image = DecodeImage(imageBase64)
+            ?? throw new ArgumentException("Choose a valid profile picture.");
+        profile.LastModifiedTimestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        SaveDocument(document);
+    }
+
+    public static void DeleteProfile(string userId)
+    {
+        ProfilesDocument document = LoadDocumentForEditing();
+        StoredProfile profile = FindStoredProfile(document, userId);
+        if (document.Profiles.Count <= 1)
+        {
+            throw new InvalidOperationException("Sol must keep at least one game user.");
+        }
+        if (string.Equals(document.LastOpened, profile.UserId, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                "Choose a different default game user before removing this one."
+            );
+        }
+
+        document.Profiles.Remove(profile);
+        SaveDocument(document);
+    }
+
+    private static ProfilesDocument LoadDocumentForEditing()
+    {
+        string path = GetProfilesPath();
+        if (!File.Exists(path))
+        {
+            return new ProfilesDocument
+            {
+                Profiles =
+                [
+                    new StoredProfile
+                    {
+                        UserId = DefaultUserId,
+                        Name = "Sol Player",
+                        LastModifiedTimestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+                        Image = ReadEmbeddedImage(DefaultUserImage),
+                    },
+                ],
+                LastOpened = DefaultUserId,
+            };
+        }
+
+        ProfilesDocument document = JsonSerializer.Deserialize<ProfilesDocument>(
+            File.ReadAllText(path)
+        ) ?? throw new InvalidDataException("Profiles.json is not a valid profile document.");
+        document.Profiles = document.Profiles
+            .Where(profile => !string.IsNullOrWhiteSpace(profile.UserId))
+            .ToList();
+        if (document.Profiles.Count == 0)
+        {
+            throw new InvalidDataException("Profiles.json does not contain a valid user.");
+        }
+        if (!document.Profiles.Any(profile => string.Equals(
+                profile.UserId,
+                document.LastOpened,
+                StringComparison.OrdinalIgnoreCase
+            )))
+        {
+            document.LastOpened = document.Profiles[0].UserId;
+        }
+        return document;
+    }
+
+    private static StoredProfile FindStoredProfile(ProfilesDocument document, string userId)
+    {
+        string normalized = new UserId(userId).ToString();
+        return document.Profiles.FirstOrDefault(profile => string.Equals(
+            profile.UserId,
+            normalized,
+            StringComparison.OrdinalIgnoreCase
+        )) ?? throw new ArgumentException("That game user no longer exists.");
+    }
+
+    private static string NormalizeName(string name)
+    {
+        string normalized = (name ?? string.Empty).Trim();
+        if (normalized.Length is < 1 or > 32)
+        {
+            throw new ArgumentException("Game user names must contain 1 to 32 characters.");
+        }
+        return normalized;
+    }
+
+    private static byte[]? DecodeImage(string? imageBase64)
+    {
+        if (string.IsNullOrWhiteSpace(imageBase64))
+        {
+            return null;
+        }
+        byte[] image;
+        try
+        {
+            image = Convert.FromBase64String(imageBase64);
+        }
+        catch (FormatException)
+        {
+            throw new ArgumentException("The profile picture data is invalid.");
+        }
+        if (image.Length is < 1 or > 512 * 1024)
+        {
+            throw new ArgumentException("Profile pictures must be smaller than 512 KiB.");
+        }
+        return image;
+    }
+
+    private static void SaveDocument(ProfilesDocument document)
+    {
+        string path = GetProfilesPath();
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        string temporaryPath = path + ".sol.tmp";
+        File.WriteAllText(
+            temporaryPath,
+            JsonSerializer.Serialize(
+                document,
+                new JsonSerializerOptions { WriteIndented = true }
+            )
+        );
+        File.Move(temporaryPath, path, overwrite: true);
+    }
+
     private static (List<UserProfile> Profiles, string DefaultUserId) LoadProfiles()
     {
         string profilesPath = GetProfilesPath();
@@ -201,7 +360,7 @@ internal static class NativeProfileBridge
 
         UserProfile defaultProfile = new(
             new UserId(DefaultUserId),
-            "RyuPlayer",
+            "Sol Player",
             ReadEmbeddedImage(DefaultUserImage)
         );
         return ([defaultProfile], DefaultUserId);

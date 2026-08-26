@@ -125,7 +125,10 @@ namespace Ryujinx.Headless
 
         protected override void FinalizeWindowRenderer()
         {
-            Device.DisposeGpu();
+            if (!NativeEmbeddedEntrypoint.IsEmbedded)
+            {
+                Device.DisposeGpu();
+            }
         }
 
         protected override void SwapBuffers() { }

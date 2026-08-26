@@ -1,13 +1,17 @@
 #nullable enable
 
 using Ryujinx.Common.Configuration;
+using Ryujinx.Common.Memory;
 using Ryujinx.Common.SystemInterop;
+using Ryujinx.Cpu.AppleHv;
 using Ryujinx.Graphics.Vulkan;
 using Ryujinx.Input.SDL3;
 using Ryujinx.SDL3.Common;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Runtime;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -107,6 +111,7 @@ public static unsafe class NativeEmbeddedEntrypoint
     private static readonly ConcurrentQueue<MainThreadWork> MainThreadWorkQueue = new();
     private static readonly ConcurrentQueue<string> EventQueue = new();
     private static Thread? _engineThread;
+    private static Thread? _cleanupThread;
     private static int _mainThreadId;
     private static nint _cocoaView;
     private static nint _metalLayer;
@@ -120,6 +125,7 @@ public static unsafe class NativeEmbeddedEntrypoint
     private static int _acceptDlsmCallbacks;
     private static int _dlsmCallbacksInFlight;
     private static int _firstFramePublished;
+    private static CancellationTokenSource? _benchmarkInputCancellation;
     private static bool _sdlHostReference;
     private static DlsmPresentCallback? _dlsmPresentCallback;
     private static nint _dlsmContext;
@@ -166,7 +172,10 @@ public static unsafe class NativeEmbeddedEntrypoint
 
         lock (SessionLock)
         {
-            if (_running || _starting || _engineThread?.IsAlive == true)
+            if (_running ||
+                _starting ||
+                _engineThread?.IsAlive == true ||
+                _cleanupThread?.IsAlive == true)
             {
                 return -3;
             }
@@ -209,6 +218,7 @@ public static unsafe class NativeEmbeddedEntrypoint
                 AppDataManager.Initialize(dataDirectory);
                 SDL3Driver.MainThreadDispatcher = InvokeOnMainThread;
                 SDL3Driver.UseExternalEventPump = true;
+                SDL3Keyboard.SetExternalInputMode(true);
 
                 if (!_sdlHostReference)
                 {
@@ -222,6 +232,33 @@ public static unsafe class NativeEmbeddedEntrypoint
                     "surface-ready",
                     "Native Metal surface ready");
 
+                ScheduleBenchmarkConfirmPulse();
+
+                if (string.Equals(
+                        Environment.GetEnvironmentVariable(
+                            "SOL_METAL_GAMEPLAY_BOOTSTRAP"),
+                        "1",
+                        StringComparison.Ordinal))
+                {
+                    bool bootstrapPresented =
+                        SolMetalNativeBridge.TryPresentBootstrapFrame(
+                            metalLayer,
+                            normalizedWidth,
+                            normalizedHeight,
+                            out string? bootstrapFailure);
+                    NativeSessionProtocol.Publish(new NativeSessionEvent
+                    {
+                        Event = "solmetal.bootstrap-frame",
+                        Operation = "solmetal-bootstrap",
+                        Success = bootstrapPresented,
+                        Width = normalizedWidth,
+                        Height = normalizedHeight,
+                        Message = bootstrapPresented
+                            ? "SolMetal presented a texture-backed launch frame; guest rendering remains on Vulkan."
+                            : bootstrapFailure,
+                    });
+                }
+
                 _engineThread = new Thread(() => RunEngine(gamePath, dataDirectory))
                 {
                     IsBackground = true,
@@ -233,6 +270,7 @@ public static unsafe class NativeEmbeddedEntrypoint
             }
             catch (Exception exception)
             {
+                SDL3Keyboard.SetExternalInputMode(false);
                 MetalFxPresentation.Clear();
                 Volatile.Write(ref _acceptDlsmCallbacks, 0);
                 _dlsmPresentCallback = null;
@@ -270,19 +308,29 @@ public static unsafe class NativeEmbeddedEntrypoint
             }
         }
 
-        if ((_dlsmPresentCallback is null || handled) &&
-            Interlocked.CompareExchange(ref _firstFramePublished, 1, 0) == 0)
+        if (_dlsmPresentCallback is null || handled)
         {
-            NativeSessionProtocol.Publish(new NativeSessionEvent
-            {
-                Event = "launch.first-frame",
-                Message = "First Metal frame presented",
-                Width = frame.ColorWidth,
-                Height = frame.ColorHeight,
-            });
+            NotifyFirstMetalFramePresented(frame.ColorWidth, frame.ColorHeight);
         }
 
         return handled;
+    }
+
+    internal static void NotifyFirstMetalFramePresented(int width, int height)
+    {
+        if (width <= 0 || height <= 0 ||
+            Interlocked.CompareExchange(ref _firstFramePublished, 1, 0) != 0)
+        {
+            return;
+        }
+
+        NativeSessionProtocol.Publish(new NativeSessionEvent
+        {
+            Event = "launch.first-frame",
+            Message = "First Metal frame presented",
+            Width = width,
+            Height = height,
+        });
     }
 
     private static void PublishDlsmAttachmentLabels(string message)
@@ -510,6 +558,7 @@ public static unsafe class NativeEmbeddedEntrypoint
     internal static void RequestStop()
     {
         _stopRequested = true;
+        CancelBenchmarkInput();
         Volatile.Write(ref _acceptDlsmCallbacks, 0);
         MetalFxPresentation.Clear();
         if (_windowReady)
@@ -621,6 +670,22 @@ public static unsafe class NativeEmbeddedEntrypoint
                 "--root-data-dir",
                 dataDirectory,
             ];
+            if (string.Equals(
+                    Environment.GetEnvironmentVariable(
+                        "SOL_BENCHMARK_USE_KEYBOARD"),
+                    "1",
+                    StringComparison.Ordinal))
+            {
+                // Keep automated game bring-up independent from the user's
+                // saved controller assignment. Explicit CLI input options
+                // override only this engine run and never rewrite Config.json.
+                arguments.AddRange([
+                    "--input-id-1",
+                    "0",
+                    "--input-profile-1",
+                    "default",
+                ]);
+            }
             arguments.Add(gamePath);
             NativeSessionProtocol.PublishLaunchProgress(
                 "starting-core",
@@ -635,11 +700,12 @@ public static unsafe class NativeEmbeddedEntrypoint
         }
         finally
         {
+            CancelBenchmarkInput();
             Volatile.Write(ref _acceptDlsmCallbacks, 0);
             MetalFxPresentation.Clear();
             _dlsmPresentCallback = null;
             _dlsmContext = 0;
-            SDL3Keyboard.ClearExternalKeyState();
+            SDL3Keyboard.SetExternalInputMode(false);
             DisplaySleep.Restore();
             _running = false;
             _starting = false;
@@ -647,20 +713,200 @@ public static unsafe class NativeEmbeddedEntrypoint
             _stopDispatchPending = 0;
 
             NativeSessionProtocol.CompletePlaytimeTracking();
+            NativeSessionProtocol.Stop();
+            HeadlessRyujinx.ReleaseCompletedNativeSessionReferences();
+            Thread completedEngineThread = Thread.CurrentThread;
+            Thread cleanupThread = new(
+                () => CompleteSessionCleanup(
+                    completedEngineThread,
+                    exitCode,
+                    failure))
+            {
+                IsBackground = true,
+                Name = "Sol.Engine.Cleanup",
+            };
+            lock (SessionLock)
+            {
+                _cleanupThread = cleanupThread;
+                _cocoaView = 0;
+                _metalLayer = 0;
+            }
+            cleanupThread.Start();
+        }
+    }
+
+    private static void ScheduleBenchmarkConfirmPulse()
+    {
+        string? rawDelay = Environment.GetEnvironmentVariable(
+            "SOL_BENCHMARK_CONFIRM_AFTER_SECONDS");
+        if (!double.TryParse(
+                rawDelay,
+                System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out double delaySeconds) ||
+            !double.IsFinite(delaySeconds) ||
+            delaySeconds < 1 ||
+            delaySeconds > 300)
+        {
+            return;
+        }
+        int pulseCount = 1;
+        string? rawPulseCount = Environment.GetEnvironmentVariable(
+            "SOL_BENCHMARK_CONFIRM_PULSE_COUNT");
+        if (rawPulseCount is not null &&
+            (!int.TryParse(rawPulseCount, out pulseCount) ||
+             pulseCount < 1 || pulseCount > 12))
+        {
+            return;
+        }
+        double pulseIntervalSeconds = 2;
+        string? rawPulseInterval = Environment.GetEnvironmentVariable(
+            "SOL_BENCHMARK_CONFIRM_PULSE_INTERVAL_SECONDS");
+        if (rawPulseInterval is not null &&
+            (!double.TryParse(
+                rawPulseInterval,
+                System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out pulseIntervalSeconds) ||
+             !double.IsFinite(pulseIntervalSeconds) ||
+             pulseIntervalSeconds < 1 || pulseIntervalSeconds > 30))
+        {
+            return;
+        }
+
+        CancelBenchmarkInput();
+        CancellationTokenSource cancellation = new();
+        _benchmarkInputCancellation = cancellation;
+
+        Thread pulseThread = new(() =>
+        {
+            // The config stores PhysicalKey.Z, while the external bridge is
+            // indexed by SDL scancode. USB/SDL Z is 29 (0x1d).
+            const int SdlScancodeZ = 0x1d;
+            try
+            {
+                if (cancellation.Token.WaitHandle.WaitOne(
+                        TimeSpan.FromSeconds(delaySeconds)))
+                {
+                    return;
+                }
+
+                for (int pulse = 0; pulse < pulseCount; pulse++)
+                {
+                    Console.WriteLine(
+                        $"[Benchmark] Holding configured confirm key ({pulse + 1}/{pulseCount}).");
+                    SDL3Keyboard.SetExternalKeyState(SdlScancodeZ, true);
+                    if (cancellation.Token.WaitHandle.WaitOne(
+                            TimeSpan.FromMilliseconds(750)))
+                    {
+                        return;
+                    }
+                    SDL3Keyboard.SetExternalKeyState(SdlScancodeZ, false);
+                    if (pulse + 1 < pulseCount &&
+                        cancellation.Token.WaitHandle.WaitOne(
+                            TimeSpan.FromSeconds(pulseIntervalSeconds)))
+                    {
+                        return;
+                    }
+                }
+            }
+            finally
+            {
+                SDL3Keyboard.SetExternalKeyState(SdlScancodeZ, false);
+            }
+        })
+        {
+            IsBackground = true,
+            Name = "Sol.Benchmark.Input",
+        };
+        pulseThread.Start();
+    }
+
+    private static void CancelBenchmarkInput()
+    {
+        CancellationTokenSource? cancellation =
+            Interlocked.Exchange(ref _benchmarkInputCancellation, null);
+        cancellation?.Cancel();
+        cancellation?.Dispose();
+    }
+
+    private static void CompleteSessionCleanup(
+        Thread completedEngineThread,
+        int exitCode,
+        string? failure)
+    {
+        try
+        {
+            // The engine thread's final managed stack can temporarily keep
+            // large guest staging arrays alive. Collect only after that stack
+            // has fully unwound, from a separate cleanup thread.
+            completedEngineThread.Join();
+            ReclaimCompletedSessionMemory();
+        }
+        catch (Exception exception)
+        {
+            failure ??= $"Post-session cleanup failed: {exception}";
+            exitCode = 1;
+            NativeSessionProtocol.PublishError(failure);
+        }
+        finally
+        {
+            lock (SessionLock)
+            {
+                if (ReferenceEquals(_engineThread, completedEngineThread))
+                {
+                    _engineThread = null;
+                }
+
+                if (ReferenceEquals(_cleanupThread, Thread.CurrentThread))
+                {
+                    _cleanupThread = null;
+                }
+            }
+
             NativeSessionProtocol.Publish(new NativeSessionEvent
             {
                 Event = "embedded.terminated",
                 ExitCode = exitCode,
                 Message = failure,
             });
-            NativeSessionProtocol.Stop();
-
-            lock (SessionLock)
-            {
-                _engineThread = null;
-                _cocoaView = 0;
-                _metalLayer = 0;
-            }
         }
+    }
+
+    private static void ReclaimCompletedSessionMemory()
+    {
+        // CoreCLR stays embedded after a game closes, unlike the standalone
+        // engine process. Compact once at this session boundary so guest/JIT
+        // objects do not make the native launcher progressively heavier. This
+        // runs on the engine thread, never AppKit's main thread.
+        // Texture conversion and guest-memory staging intentionally use a
+        // process-wide array pool in standalone Ryujinx. Sol keeps CoreCLR
+        // alive between games, so release those idle arrays at this explicit
+        // session boundary before compacting the managed heap.
+        MemoryOwner<byte>.TrimPool();
+        GCSettings.LargeObjectHeapCompactionMode = GCLargeObjectHeapCompactionMode.CompactOnce;
+        GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, blocking: true, compacting: true);
+        GC.WaitForPendingFinalizers();
+        // A normal full collection deliberately keeps committed heap segments
+        // around for reuse. That is desirable for a server, but an embedded
+        // emulator can otherwise leave more than a gigabyte charged to the
+        // native launcher while sitting on Home. Aggressive is reserved for
+        // this explicit session boundary and asks CoreCLR to decommit as much
+        // unused memory as possible.
+        GC.Collect(GC.MaxGeneration, GCCollectionMode.Aggressive, blocking: true, compacting: true);
+
+        GCMemoryInfo memoryInfo = GC.GetGCMemoryInfo();
+        using Process process = Process.GetCurrentProcess();
+        NativeSessionProtocol.Publish(new NativeSessionEvent
+        {
+            Event = "embedded.memory-reclaimed",
+            ManagedLiveBytes = GC.GetTotalMemory(forceFullCollection: false),
+            ManagedHeapBytes = memoryInfo.HeapSizeBytes,
+            ManagedCommittedBytes = memoryInfo.TotalCommittedBytes,
+            ManagedFragmentedBytes = memoryInfo.FragmentedBytes,
+            ProcessWorkingSetBytes = process.WorkingSet64,
+            HvAddressSpaces = HvLifecycleDiagnostics.ActiveAddressSpaces,
+            HvVcpus = HvLifecycleDiagnostics.ActiveVcpus,
+        });
     }
 }

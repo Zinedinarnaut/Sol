@@ -129,6 +129,15 @@ namespace Ryujinx.Common.Memory
                     }
                 }
             }
+
+            public static void Trim()
+            {
+                lock (_lock)
+                {
+                    _pool.Clear();
+                    _maxCacheCount = 50;
+                }
+            }
         }
         
         private readonly int _length;
@@ -182,6 +191,13 @@ namespace Ryujinx.Common.Memory
 
             return result;
         }
+
+        /// <summary>
+        /// Releases process-wide pooled arrays at an explicit low-memory
+        /// boundary. The embedded frontend calls this only after a complete
+        /// emulation session has disposed all active owners.
+        /// </summary>
+        public static void TrimPool() => ArrayPooling.Trim();
 
         /// <summary>
         /// Gets the number of items in the current instance.

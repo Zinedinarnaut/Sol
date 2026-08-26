@@ -24,6 +24,8 @@ namespace Ryujinx.Cpu.AppleHv
         private int _totalVcpus;
         private readonly int _maxVcpus;
 
+        internal int ActiveVcpus => Volatile.Read(ref _totalVcpus);
+
         public HvVcpuPool()
         {
             HvApi.hv_vm_get_max_vcpu_count(out uint maxVcpuCount).ThrowOnError();

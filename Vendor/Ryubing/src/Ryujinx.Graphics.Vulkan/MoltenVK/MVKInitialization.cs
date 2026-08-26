@@ -25,6 +25,9 @@ namespace Ryujinx.Graphics.Vulkan.MoltenVK
             vkGetMoltenVKConfigurationMVK(nint.Zero, out MVKConfiguration config, configSize);
 
             config.UseMetalArgumentBuffers = true;
+            config.FastMathEnabled = true;
+            config.PreallocateDescriptors = true;
+            config.UseCommandPooling = true;
 
             config.SemaphoreSupportStyle = MVKVkSemaphoreSupportStyle.MVK_CONFIG_VK_SEMAPHORE_SUPPORT_STYLE_SINGLE_QUEUE;
             config.SynchronousQueueSubmits = false;

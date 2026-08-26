@@ -183,6 +183,10 @@ namespace Ryujinx.HLE
         {
             if (disposing)
             {
+                // The statistics timer owns its Switch through the elapsed
+                // callback. Stop it before tearing down HLE so a completed
+                // embedded session cannot stay rooted by TimerQueue.
+                Statistics.Dispose();
                 Processes.ClearAllProcesses();
                 System.Dispose();
                 AudioDeviceDriver.Dispose();

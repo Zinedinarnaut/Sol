@@ -60,6 +60,8 @@ capture_build_path() {
 NATIVE_HOST_DYLIB="$(capture_build_path "$ROOT_DIR/script/build_sol_engine_native_host.sh")"
 NATIVE_HEADLESS_DIR="$(capture_build_path "$ROOT_DIR/script/build_sol_engine.sh")"
 MANAGED_CORE_DIR="$(capture_build_path "$ROOT_DIR/script/build_sol_engine_managed.sh")"
+SOL_METAL_DIR="$(capture_build_path "$ROOT_DIR/script/build_sol_metal.sh")"
+SOL_METAL_DYLIB="$SOL_METAL_DIR/SolMetal.dylib"
 
 APP_FRAMEWORKS="$APP_BUNDLE/Contents/Frameworks"
 APP_LEGAL="$APP_BUNDLE/Contents/Resources/Legal"
@@ -87,8 +89,10 @@ replace_directory() {
 mkdir -p "$APP_FRAMEWORKS"
 /bin/rm -f \
   "$APP_FRAMEWORKS/Sol.Engine.NativeHost.dylib" \
-  "$APP_FRAMEWORKS/libSol.Engine.NativeHost.dylib"
+  "$APP_FRAMEWORKS/libSol.Engine.NativeHost.dylib" \
+  "$APP_FRAMEWORKS/SolMetal.dylib"
 /bin/cp "$NATIVE_HOST_DYLIB" "$APP_FRAMEWORKS/Sol.Engine.NativeHost.dylib"
+/bin/cp "$SOL_METAL_DYLIB" "$APP_FRAMEWORKS/SolMetal.dylib"
 
 mkdir -p "$APP_LEGAL"
 /bin/rm -f "$APP_LEGAL/Ryujinx-LICENSE.txt"
@@ -100,10 +104,52 @@ mkdir -p "$APP_LEGAL"
 /bin/cp \
   "$ROOT_DIR/Vendor/Ryubing/distribution/legal/THIRDPARTY.md" \
   "$APP_LEGAL/UPSTREAM-THIRD-PARTY-NOTICES.md"
+/bin/cp \
+  "$ROOT_DIR/ThirdParty/SPIRV-Cross/LICENSE" \
+  "$APP_LEGAL/SPIRV-CROSS-LICENSE.txt"
 /bin/cp "$ROOT_DIR/.tools/dotnet/LICENSE.txt" "$APP_LEGAL/DOTNET-LICENSE.txt"
 /bin/cp \
   "$ROOT_DIR/.tools/dotnet/ThirdPartyNotices.txt" \
   "$APP_LEGAL/DOTNET-THIRD-PARTY-NOTICES.txt"
+
+PACKAGE_CHECKOUT_ROOTS=("$ROOT_DIR/.build/checkouts")
+if [[ -n "${BUILD_DIR:-}" ]]; then
+  PACKAGE_CHECKOUT_ROOTS+=("$(cd "$BUILD_DIR/../.." && pwd -P)/SourcePackages/checkouts")
+fi
+
+copy_package_license() {
+  local package_name="$1"
+  local license_name="$2"
+  local destination_name="$3"
+  local checkout_root
+
+  for checkout_root in "${PACKAGE_CHECKOUT_ROOTS[@]}"; do
+    if [[ -f "$checkout_root/$package_name/$license_name" ]]; then
+      # Some package repositories mark their license read-only. Remove the
+      # previously embedded copy so incremental signed builds remain
+      # repeatable instead of failing while trying to truncate that file.
+      /bin/rm -f "$APP_LEGAL/$destination_name"
+      /bin/cp \
+        "$checkout_root/$package_name/$license_name" \
+        "$APP_LEGAL/$destination_name"
+      return 0
+    fi
+  done
+
+  echo "Missing license for Swift package $package_name" >&2
+  return 1
+}
+
+copy_package_license "DockProgress" "license" "DockProgress-LICENSE.txt"
+copy_package_license "swift-argument-parser" "LICENSE.txt" "Swift-Argument-Parser-LICENSE.txt"
+copy_package_license "SemanticVersion" "LICENSE" "SemanticVersion-LICENSE.txt"
+copy_package_license "WhatsNewKit" "LICENSE" "WhatsNewKit-LICENSE.txt"
+copy_package_license "SwiftUI-Shimmer" "LICENSE" "SwiftUI-Shimmer-LICENSE.txt"
+copy_package_license "Glur" "LICENSE" "Glur-LICENSE.txt"
+copy_package_license "ColorfulX" "LICENSE" "ColorfulX-LICENSE.txt"
+copy_package_license "SpringInterpolation" "LICENSE" "SpringInterpolation-LICENSE.txt"
+copy_package_license "MSDisplayLink" "LICENSE" "MSDisplayLink-LICENSE.txt"
+copy_package_license "ColorVector" "LICENSE" "ColorVector-LICENSE.txt"
 
 replace_directory "$NATIVE_HEADLESS_DIR" "$APP_NATIVE_CORE"
 replace_directory "$MANAGED_CORE_DIR" "$APP_MANAGED_CORE"
@@ -121,12 +167,14 @@ mkdir -p \
 
 REQUIRED_PATHS=(
   "$APP_FRAMEWORKS/Sol.Engine.NativeHost.dylib"
+  "$APP_FRAMEWORKS/SolMetal.dylib"
   "$APP_NATIVE_CORE/Sol.Engine"
   "$APP_MANAGED_CORE/Sol.Engine.dll"
   "$APP_MANAGED_CORE/Sol.Engine.deps.json"
   "$APP_MANAGED_CORE/Sol.Engine.runtimeconfig.json"
   "$APP_DOTNET/host/fxr/10.0.9/libhostfxr.dylib"
   "$APP_DOTNET/shared/Microsoft.NETCore.App/10.0.9/libcoreclr.dylib"
+  "$APP_LEGAL/SPIRV-CROSS-LICENSE.txt"
 )
 
 for required_path in "${REQUIRED_PATHS[@]}"; do

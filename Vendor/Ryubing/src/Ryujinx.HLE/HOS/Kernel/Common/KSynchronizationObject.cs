@@ -26,7 +26,13 @@ namespace Ryujinx.HLE.HOS.Kernel.Common
         public void RemoveWaitingThread(LinkedListNode<KThread> node)
         {
             WaitingThreads.Remove(node);
+            node.Value = null;
             _nodePool.Release(node);
+        }
+
+        internal static void ClearNodePool()
+        {
+            _nodePool.Clear();
         }
 
         public virtual void Signal()

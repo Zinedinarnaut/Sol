@@ -5,12 +5,14 @@ using Ryujinx.Common;
 using Ryujinx.Common.Configuration;
 using Ryujinx.Common.Configuration.Hid;
 using Ryujinx.Common.Configuration.Hid.Controller;
+using Ryujinx.Common.Configuration.Hid.Controller.Motion;
 using Ryujinx.Input;
 using Ryujinx.Input.SDL3;
 using Ryujinx.HLE.FileSystem;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Globalization;
 using System.Linq;
 
 namespace Ryujinx.Headless;
@@ -26,11 +28,38 @@ internal static class NativeBackendManagement
     private const string SetInputArgument = "--native-set-input";
     private const string SetInputBindingArgument = "--native-set-input-binding";
     private const string ResetInputBindingsArgument = "--native-reset-input-bindings";
+    private const string SetInputTuningArgument = "--native-set-input-tuning";
+    private const string TestInputRumbleArgument = "--native-test-input-rumble";
+    private const string InputBridgeSmokeArgument = "--native-input-bridge-smoke";
     private const string BindingArgument = "--native-binding";
     private const string ListProfilesArgument = "--native-list-profiles";
     private const string SetProfileArgument = "--native-set-profile";
+    private const string CreateProfileArgument = "--native-create-profile";
+    private const string RenameProfileArgument = "--native-rename-profile";
+    private const string DeleteProfileArgument = "--native-delete-profile";
+    private const string SetProfileImageArgument = "--native-set-profile-image";
+    private const string SolMetalStatusArgument = "--native-solmetal-status";
+    private const string SolMetalGalSmokeArgument = "--native-solmetal-gal-smoke";
+    private const string ProfileNameArgument = "--native-profile-name";
+    private const string ProfileImageBase64Argument = "--native-profile-image-base64";
     private const string PlayerArgument = "--native-player";
     private const string RootDataArgument = "--root-data-dir";
+    private const string DeadzoneLeftArgument = "--deadzone-left";
+    private const string DeadzoneRightArgument = "--deadzone-right";
+    private const string RangeLeftArgument = "--range-left";
+    private const string RangeRightArgument = "--range-right";
+    private const string TriggerThresholdArgument = "--trigger-threshold";
+    private const string MotionEnabledArgument = "--motion-enabled";
+    private const string MotionSensitivityArgument = "--motion-sensitivity";
+    private const string GyroDeadzoneArgument = "--gyro-deadzone";
+    private const string RumbleEnabledArgument = "--rumble-enabled";
+    private const string StrongRumbleArgument = "--strong-rumble";
+    private const string WeakRumbleArgument = "--weak-rumble";
+    private const string HdRumbleArgument = "--hd-rumble";
+    private const string LedEnabledArgument = "--led-enabled";
+    private const string LedOffArgument = "--led-off";
+    private const string LedRainbowArgument = "--led-rainbow";
+    private const string LedColorArgument = "--led-color";
 
     public static bool TryRun(string[] args, out int exitCode)
     {
@@ -192,6 +221,20 @@ internal static class NativeBackendManagement
                         ValueAfter(args, PlayerArgument) ?? nameof(PlayerIndex.Player1)
                     );
                     break;
+                case SetInputTuningArgument:
+                    SetControllerTuning(
+                        ValueAfter(args, PlayerArgument) ?? nameof(PlayerIndex.Player1),
+                        args
+                    );
+                    break;
+                case TestInputRumbleArgument:
+                    TestControllerRumble(
+                        ValueAfter(args, PlayerArgument) ?? nameof(PlayerIndex.Player1)
+                    );
+                    break;
+                case InputBridgeSmokeArgument:
+                    RunInputBridgeSmoke();
+                    break;
                 case ListProfilesArgument:
                     PublishProfiles(includeCompletion: true);
                     break;
@@ -207,6 +250,57 @@ internal static class NativeBackendManagement
                         Message = "Default Sol profile updated.",
                     });
                     PublishProfiles(includeCompletion: false);
+                    break;
+                case CreateProfileArgument:
+                    RequireSource(source, operation);
+                    string createdProfileId = NativeProfileBridge.CreateProfile(
+                        source!,
+                        ValueAfter(args, ProfileImageBase64Argument)
+                    );
+                    PublishProfileOperation(
+                        "create-profile",
+                        createdProfileId,
+                        "Game user created."
+                    );
+                    break;
+                case RenameProfileArgument:
+                    RequireSource(source, operation);
+                    NativeProfileBridge.RenameProfile(
+                        source!,
+                        ValueAfter(args, ProfileNameArgument) ?? string.Empty
+                    );
+                    PublishProfileOperation(
+                        "rename-profile",
+                        source!,
+                        "Game user renamed."
+                    );
+                    break;
+                case DeleteProfileArgument:
+                    RequireSource(source, operation);
+                    NativeProfileBridge.DeleteProfile(source!);
+                    PublishProfileOperation(
+                        "delete-profile",
+                        source!,
+                        "Game user removed. Its save data was preserved."
+                    );
+                    break;
+                case SetProfileImageArgument:
+                    RequireSource(source, operation);
+                    NativeProfileBridge.SetProfileImage(
+                        source!,
+                        ValueAfter(args, ProfileImageBase64Argument)
+                    );
+                    PublishProfileOperation(
+                        "set-profile-image",
+                        source!,
+                        "Game user picture updated."
+                    );
+                    break;
+                case SolMetalStatusArgument:
+                    PublishSolMetalStatus();
+                    break;
+                case SolMetalGalSmokeArgument:
+                    RunSolMetalGalSmoke();
                     break;
             }
 
@@ -461,6 +555,82 @@ internal static class NativeBackendManagement
         });
     }
 
+    private static void RunInputBridgeSmoke()
+    {
+        const int SdlScancodeZ = 0x1d;
+        int assertions = 0;
+
+        SDL3Keyboard.SetExternalInputMode(true);
+        try
+        {
+            using SDL3KeyboardDriver keyboardDriver = new();
+            using IGamepad? gamepad = keyboardDriver.GetGamepad("0");
+            if (gamepad is not SDL3Keyboard keyboard)
+            {
+                throw new InvalidOperationException(
+                    "Sol Engine could not create its external keyboard bridge."
+                );
+            }
+
+            SDL3Keyboard.SetExternalKeyState(SdlScancodeZ, true);
+            SDL3Keyboard.SetExternalKeyState(SdlScancodeZ, false);
+            Assert(
+                keyboard.GetKeyboardStateSnapshot().IsPressed(PhysicalKey.Z),
+                "A press released between polls was lost."
+            );
+            Assert(
+                !keyboard.GetKeyboardStateSnapshot().IsPressed(PhysicalKey.Z),
+                "A consumed quick press remained latched."
+            );
+
+            SDL3Keyboard.SetExternalKeyState(SdlScancodeZ, true);
+            Assert(
+                keyboard.GetKeyboardStateSnapshot().IsPressed(PhysicalKey.Z),
+                "A held key was not observed."
+            );
+            Assert(
+                keyboard.GetKeyboardStateSnapshot().IsPressed(PhysicalKey.Z),
+                "A held key expired after one poll."
+            );
+            SDL3Keyboard.SetExternalKeyState(SdlScancodeZ, false);
+            Assert(
+                !keyboard.GetKeyboardStateSnapshot().IsPressed(PhysicalKey.Z),
+                "A released held key remained active."
+            );
+
+            SDL3Keyboard.SetExternalKeyState(SdlScancodeZ, true);
+            SDL3Keyboard.SetExternalKeyState(SdlScancodeZ, false);
+            SDL3Keyboard.ClearExternalKeyState();
+            Assert(
+                !keyboard.GetKeyboardStateSnapshot().IsPressed(PhysicalKey.Z),
+                "Reset did not clear an unconsumed press."
+            );
+
+            NativeSessionProtocol.Publish(new NativeSessionEvent
+            {
+                Event = "input.bridge-smoke",
+                Operation = "input-bridge-smoke",
+                Success = true,
+                Count = assertions,
+                Message =
+                    "External keyboard taps, holds, releases, and reset passed.",
+            });
+        }
+        finally
+        {
+            SDL3Keyboard.SetExternalInputMode(false);
+        }
+
+        void Assert(bool condition, string failure)
+        {
+            assertions++;
+            if (!condition)
+            {
+                throw new InvalidOperationException(failure);
+            }
+        }
+    }
+
     private static void PublishProfiles(bool includeCompletion)
     {
         IReadOnlyList<NativeProfileBridge.ProfileSummary> profiles =
@@ -493,6 +663,23 @@ internal static class NativeBackendManagement
                     : $"Found {profiles.Count} Sol profiles.",
             });
         }
+    }
+
+    private static void PublishProfileOperation(
+        string operation,
+        string profileId,
+        string message
+    )
+    {
+        NativeSessionProtocol.Publish(new NativeSessionEvent
+        {
+            Event = "backend.operation",
+            Operation = operation,
+            Success = true,
+            ProfileId = profileId,
+            Message = message,
+        });
+        PublishProfiles(includeCompletion: false);
     }
 
     private static void SetPlayerInput(string inputId, string playerName)
@@ -688,6 +875,105 @@ internal static class NativeBackendManagement
         });
     }
 
+    private static void SetControllerTuning(string playerName, string[] args)
+    {
+        PlayerIndex playerIndex = ParsePlayerIndex(playerName);
+        string configurationPath = LoadConfiguration();
+        List<InputConfig> inputConfigs =
+            ConfigurationState.Instance.Hid.InputConfig.Value?
+                .Where(config => config is not null)
+                .ToList() ?? [];
+        StandardControllerInputConfig inputConfig = inputConfigs
+            .OfType<StandardControllerInputConfig>()
+            .FirstOrDefault(config => config.PlayerIndex == playerIndex)
+            ?? throw new InvalidOperationException(
+                $"Assign a controller to {FriendlyPlayerName(playerIndex)} before tuning it."
+            );
+
+        inputConfig.DeadzoneLeft = RequiredFloat(args, DeadzoneLeftArgument, 0f, 0.95f);
+        inputConfig.DeadzoneRight = RequiredFloat(args, DeadzoneRightArgument, 0f, 0.95f);
+        inputConfig.RangeLeft = RequiredFloat(args, RangeLeftArgument, 0.5f, 1.5f);
+        inputConfig.RangeRight = RequiredFloat(args, RangeRightArgument, 0.5f, 1.5f);
+        inputConfig.TriggerThreshold = RequiredFloat(args, TriggerThresholdArgument, 0f, 1f);
+
+        inputConfig.Motion ??= new StandardMotionConfigController();
+        inputConfig.Motion.EnableMotion = RequiredBool(args, MotionEnabledArgument);
+        inputConfig.Motion.Sensitivity = RequiredInt(args, MotionSensitivityArgument, 1, 200);
+        inputConfig.Motion.GyroDeadzone = RequiredDouble(args, GyroDeadzoneArgument, 0, 10);
+
+        inputConfig.Rumble ??= new RumbleConfigController();
+        inputConfig.Rumble.EnableRumble = RequiredBool(args, RumbleEnabledArgument);
+        inputConfig.Rumble.StrongRumble = RequiredFloat(args, StrongRumbleArgument, 0f, 1f);
+        inputConfig.Rumble.WeakRumble = RequiredFloat(args, WeakRumbleArgument, 0f, 1f);
+        inputConfig.Rumble.UseHDRumble = RequiredBool(args, HdRumbleArgument);
+
+        inputConfig.Led ??= new LedConfigController();
+        inputConfig.Led.EnableLed = RequiredBool(args, LedEnabledArgument);
+        inputConfig.Led.TurnOffLed = RequiredBool(args, LedOffArgument);
+        inputConfig.Led.UseRainbow = RequiredBool(args, LedRainbowArgument);
+        inputConfig.Led.LedColor = RequiredUInt(args, LedColorArgument, 0, 0xFFFFFF);
+
+        ConfigurationState.Instance.Hid.InputConfig.Value = inputConfigs;
+        ConfigurationState.Instance.ToFileFormat().SaveConfig(configurationPath);
+        PublishControllerMapping(inputConfig);
+
+        NativeSessionProtocol.Publish(new NativeSessionEvent
+        {
+            Event = "backend.operation",
+            Operation = "set-input-tuning",
+            Success = true,
+            InputId = inputConfig.Id,
+            InputName = inputConfig.Name,
+            PlayerIndex = playerIndex.ToString(),
+            Message = $"Saved controller tuning for {FriendlyPlayerName(playerIndex)}.",
+        });
+    }
+
+    private static void TestControllerRumble(string playerName)
+    {
+        PlayerIndex playerIndex = ParsePlayerIndex(playerName);
+        LoadConfiguration();
+        StandardControllerInputConfig inputConfig =
+            ConfigurationState.Instance.Hid.InputConfig.Value?
+                .OfType<StandardControllerInputConfig>()
+                .FirstOrDefault(config => config.PlayerIndex == playerIndex)
+            ?? throw new InvalidOperationException(
+                $"Assign a controller to {FriendlyPlayerName(playerIndex)} before testing rumble."
+            );
+
+        using SDL3GamepadDriver gamepadDriver = new();
+        using IGamepad? gamepad = gamepadDriver.GetGamepad(inputConfig.Id);
+
+        if (gamepad is null)
+        {
+            throw new InvalidOperationException(
+                $"{inputConfig.Name} is not connected. Wake it and try again."
+            );
+        }
+
+        gamepad.SetConfiguration(inputConfig);
+        float strong = inputConfig.Rumble?.StrongRumble ?? 1f;
+        float weak = inputConfig.Rumble?.WeakRumble ?? 1f;
+
+        if (!gamepad.Rumble(strong, weak, 450))
+        {
+            throw new NotSupportedException(
+                $"{inputConfig.Name} did not accept a rumble request."
+            );
+        }
+
+        NativeSessionProtocol.Publish(new NativeSessionEvent
+        {
+            Event = "backend.operation",
+            Operation = "test-input-rumble",
+            Success = true,
+            InputId = inputConfig.Id,
+            InputName = inputConfig.Name,
+            PlayerIndex = playerIndex.ToString(),
+            Message = $"Played a rumble preview on {inputConfig.Name}.",
+        });
+    }
+
     private static PlayerIndex ParsePlayerIndex(string playerName)
     {
         if (!Enum.TryParse(playerName, ignoreCase: true, out PlayerIndex playerIndex) ||
@@ -709,6 +995,22 @@ internal static class NativeBackendManagement
             InputKind = "controller",
             PlayerIndex = inputConfig.PlayerIndex.ToString(),
             Bindings = ControllerBindings(inputConfig),
+            DeadzoneLeft = inputConfig.DeadzoneLeft,
+            DeadzoneRight = inputConfig.DeadzoneRight,
+            RangeLeft = inputConfig.RangeLeft,
+            RangeRight = inputConfig.RangeRight,
+            TriggerThreshold = inputConfig.TriggerThreshold,
+            MotionEnabled = inputConfig.Motion?.EnableMotion ?? false,
+            MotionSensitivity = inputConfig.Motion?.Sensitivity ?? 100,
+            GyroDeadzone = inputConfig.Motion?.GyroDeadzone ?? 1,
+            RumbleEnabled = inputConfig.Rumble?.EnableRumble ?? false,
+            StrongRumble = inputConfig.Rumble?.StrongRumble ?? 1,
+            WeakRumble = inputConfig.Rumble?.WeakRumble ?? 1,
+            HdRumble = inputConfig.Rumble?.UseHDRumble ?? false,
+            LedEnabled = inputConfig.Led?.EnableLed ?? false,
+            LedOff = inputConfig.Led?.TurnOffLed ?? false,
+            LedRainbow = inputConfig.Led?.UseRainbow ?? false,
+            LedColor = inputConfig.Led?.LedColor ?? 0x007AFF,
         });
     }
 
@@ -855,6 +1157,81 @@ internal static class NativeBackendManagement
         });
     }
 
+    private static void PublishSolMetalStatus()
+    {
+        SolMetalNativeBridge.ProbeResult result = SolMetalNativeBridge.Probe();
+        NativeSessionProtocol.Publish(new NativeSessionEvent
+        {
+            Event = "solmetal.status",
+            Operation = "solmetal-status",
+            Success = result.Success,
+            Playable = result.Playable,
+            AbiVersion = result.AbiVersion,
+            DeviceName = result.DeviceName,
+            AppleGpuFamily = result.AppleGpuFamily,
+            ArgumentBufferTier = result.ArgumentBufferTier,
+            UnifiedMemory = result.HasUnifiedMemory,
+            SupportsBcTextureCompression = result.SupportsBcTextureCompression,
+            SupportsRayTracing = result.SupportsRayTracing,
+            SupportsBinaryArchives = result.SupportsBinaryArchives,
+            SpirvTranslationReady = result.SpirvTranslationReady,
+            BufferResourcesReady = result.BufferResourcesReady,
+            TextureResourcesReady = result.TextureResourcesReady,
+            SamplerResourcesReady = result.SamplerResourcesReady,
+            ComputePipelinesReady = result.ComputePipelinesReady,
+            RenderPipelinesReady = result.RenderPipelinesReady,
+            RenderBindingsReady = result.RenderBindingsReady,
+            IndexedDrawingReady = result.IndexedDrawingReady,
+            DepthStencilReady = result.DepthStencilReady,
+            BlendingReady = result.BlendingReady,
+            RasterizerStateReady = result.RasterizerStateReady,
+            TimelineSynchronizationReady = result.TimelineSynchronizationReady,
+            RecommendedWorkingSetBytes = result.RecommendedWorkingSetBytes,
+            TestsRun = result.TestsRun,
+            TestsPassed = result.TestsPassed,
+            BytesVerified = result.BytesVerified,
+            ShaderCacheHits = result.ShaderCacheHits,
+            ShaderCacheMisses = result.ShaderCacheMisses,
+            BinaryArchivesCreated = result.BinaryArchivesCreated,
+            GpuMilliseconds = result.GpuMilliseconds,
+            OutputSignature = result.OutputSignature,
+            Message = result.Success
+                ? $"SolMetal passed {result.TestsPassed} native validation gates on {result.DeviceName}."
+                : result.Failure,
+        });
+    }
+
+    private static void RunSolMetalGalSmoke()
+    {
+        SolMetalGalRenderer.GalSmokeResult result =
+            SolMetalGalRenderer.RunResourceSmoke();
+        NativeSessionProtocol.Publish(new NativeSessionEvent
+        {
+            Event = "solmetal.gal-smoke",
+            Operation = "solmetal-gal-smoke",
+            Success = result.ReportsMetalApi,
+            Playable = false,
+            DeviceName = result.DeviceName,
+            BytesVerified = (ulong)result.BytesVerified,
+            BufferResourcesReady = true,
+            TextureResourcesReady = true,
+            SamplerResourcesReady = true,
+            SpirvTranslationReady = true,
+            ComputePipelinesReady = true,
+            RenderPipelinesReady = true,
+            RenderBindingsReady = true,
+            IndexedDrawingReady = true,
+            DepthStencilReady = true,
+            BlendingReady = true,
+            RasterizerStateReady = true,
+            TimelineSynchronizationReady = true,
+            Count = 16,
+            Message = result.ReportsMetalApi
+                ? $"SolMetal's GAL adapter passed buffers, 2D textures, samplers, copies, resource-bound indexed drawing with depth, blending, and raster state, compute dispatch, SPIR-V translation, readback, and ordered sync on {result.DeviceName}."
+                : "SolMetal's GAL adapter did not report the native Metal target API.",
+        });
+    }
+
     private static string? FindOperation(string[] args, out string? source)
     {
         foreach (string operation in new[]
@@ -868,8 +1245,17 @@ internal static class NativeBackendManagement
                      SetInputArgument,
                      SetInputBindingArgument,
                      ResetInputBindingsArgument,
+                     SetInputTuningArgument,
+                     TestInputRumbleArgument,
+                     InputBridgeSmokeArgument,
                      ListProfilesArgument,
                      SetProfileArgument,
+                     CreateProfileArgument,
+                     RenameProfileArgument,
+                     DeleteProfileArgument,
+                     SetProfileImageArgument,
+                     SolMetalStatusArgument,
+                     SolMetalGalSmokeArgument,
                  })
         {
             int index = Array.IndexOf(args, operation);
@@ -879,7 +1265,7 @@ internal static class NativeBackendManagement
                 continue;
             }
 
-            source = operation is StatusArgument or ScanContentArgument or ListInputsArgument or ResetInputBindingsArgument or ListProfilesArgument
+            source = operation is StatusArgument or ScanContentArgument or ListInputsArgument or ResetInputBindingsArgument or SetInputTuningArgument or TestInputRumbleArgument or InputBridgeSmokeArgument or ListProfilesArgument or SolMetalStatusArgument or SolMetalGalSmokeArgument
                 ? null
                 : index + 1 < args.Length
                     ? args[index + 1]
@@ -895,6 +1281,66 @@ internal static class NativeBackendManagement
     {
         int index = Array.IndexOf(args, argument);
         return index >= 0 && index + 1 < args.Length ? args[index + 1] : null;
+    }
+
+    private static float RequiredFloat(
+        string[] args,
+        string argument,
+        float minimum,
+        float maximum
+    )
+    {
+        string? value = ValueAfter(args, argument);
+        if (!float.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out float parsed))
+        {
+            throw new ArgumentException($"{argument} requires a number.");
+        }
+        return Math.Clamp(parsed, minimum, maximum);
+    }
+
+    private static double RequiredDouble(
+        string[] args,
+        string argument,
+        double minimum,
+        double maximum
+    )
+    {
+        string? value = ValueAfter(args, argument);
+        if (!double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double parsed))
+        {
+            throw new ArgumentException($"{argument} requires a number.");
+        }
+        return Math.Clamp(parsed, minimum, maximum);
+    }
+
+    private static int RequiredInt(string[] args, string argument, int minimum, int maximum)
+    {
+        string? value = ValueAfter(args, argument);
+        if (!int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsed))
+        {
+            throw new ArgumentException($"{argument} requires a whole number.");
+        }
+        return Math.Clamp(parsed, minimum, maximum);
+    }
+
+    private static uint RequiredUInt(string[] args, string argument, uint minimum, uint maximum)
+    {
+        string? value = ValueAfter(args, argument);
+        if (!uint.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out uint parsed))
+        {
+            throw new ArgumentException($"{argument} requires an unsigned whole number.");
+        }
+        return Math.Clamp(parsed, minimum, maximum);
+    }
+
+    private static bool RequiredBool(string[] args, string argument)
+    {
+        string? value = ValueAfter(args, argument);
+        if (!bool.TryParse(value, out bool parsed))
+        {
+            throw new ArgumentException($"{argument} requires true or false.");
+        }
+        return parsed;
     }
 
     private static void RequireSource(string? source, string operation)

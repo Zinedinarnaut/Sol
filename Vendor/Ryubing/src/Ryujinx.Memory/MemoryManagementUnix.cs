@@ -140,7 +140,12 @@ namespace Ryujinx.Memory
 
             if (OperatingSystem.IsMacOS())
             {
-                byte[] memName = "Ryujinx-XXXXXX"u8.ToArray();
+                // shm_open does not expand an XXXXXX template like mkstemp does.
+                // A fixed name can collide with another allocation, or survive a
+                // process crash before shm_unlink gets a chance to remove it.
+                // Darwin also caps POSIX shared-memory names at 31 characters.
+                string nonce = Guid.NewGuid().ToString("N")[..12];
+                byte[] memName = System.Text.Encoding.UTF8.GetBytes($"/Sol-{Environment.ProcessId}-{nonce}\0");
 
                 fixed (byte* pMemName = memName)
                 {
@@ -152,13 +157,15 @@ namespace Ryujinx.Memory
 
                     if (shm_unlink((nint)pMemName) != 0)
                     {
-                        throw new SystemException(Marshal.GetLastPInvokeErrorMessage());
+                        string error = Marshal.GetLastPInvokeErrorMessage();
+                        close(fd);
+                        throw new SystemException(error);
                     }
                 }
             }
             else
             {
-                byte[] fileName = "/dev/shm/Ryujinx-XXXXXX"u8.ToArray();
+                byte[] fileName = "/dev/shm/Ryujinx-XXXXXX\0"u8.ToArray();
 
                 fixed (byte* pFileName = fileName)
                 {
@@ -170,14 +177,18 @@ namespace Ryujinx.Memory
 
                     if (unlink((nint)pFileName) != 0)
                     {
-                        throw new SystemException(Marshal.GetLastPInvokeErrorMessage());
+                        string error = Marshal.GetLastPInvokeErrorMessage();
+                        close(fd);
+                        throw new SystemException(error);
                     }
                 }
             }
 
             if (ftruncate(fd, (nint)size) != 0)
             {
-                throw new SystemException(Marshal.GetLastPInvokeErrorMessage());
+                string error = Marshal.GetLastPInvokeErrorMessage();
+                close(fd);
+                throw new SystemException(error);
             }
 
             return fd;

@@ -48,6 +48,7 @@ required_entitlements=(
   com.apple.security.files.user-selected.read-only
   com.apple.security.network.client
   com.apple.security.network.server
+  com.apple.developer.usernotifications.time-sensitive
 )
 
 for entitlement in "${required_entitlements[@]}"; do
@@ -57,5 +58,57 @@ for entitlement in "${required_entitlements[@]}"; do
     exit 1
   fi
 done
+
+apple_sign_in="$(
+  /usr/libexec/PlistBuddy \
+    -c 'Print :com.apple.developer.applesignin:0' \
+    "$ENTITLEMENTS_FILE" 2>/dev/null || true
+)"
+if [[ "$apple_sign_in" != "Default" ]]; then
+  echo "The audit app is missing Sign in with Apple." >&2
+  exit 1
+fi
+
+kv_store="$(
+  /usr/libexec/PlistBuddy \
+    -c 'Print :com.apple.developer.ubiquity-kvstore-identifier' \
+    "$ENTITLEMENTS_FILE" 2>/dev/null || true
+)"
+if [[ "$kv_store" != *"com.solemu.app" ]]; then
+  echo "The audit app is missing Sol's iCloud key-value store." >&2
+  exit 1
+fi
+
+icloud_container="$(
+  /usr/libexec/PlistBuddy \
+    -c 'Print :com.apple.developer.ubiquity-container-identifiers:0' \
+    "$ENTITLEMENTS_FILE" 2>/dev/null || true
+)"
+icloud_container="${icloud_container# }"
+if [[ "$icloud_container" != "iCloud.com.solemu.app" ]]; then
+  echo "The audit app is missing Sol's private iCloud Documents container." >&2
+  exit 1
+fi
+
+icloud_service="$(
+  /usr/libexec/PlistBuddy \
+    -c 'Print :com.apple.developer.icloud-services:0' \
+    "$ENTITLEMENTS_FILE" 2>/dev/null || true
+)"
+icloud_service="${icloud_service# }"
+if [[ "$icloud_service" != "CloudDocuments" ]]; then
+  echo "The audit app is missing the iCloud Documents service." >&2
+  exit 1
+fi
+
+app_group="$(
+  /usr/libexec/PlistBuddy \
+    -c 'Print :com.apple.security.application-groups:0' \
+    "$ENTITLEMENTS_FILE" 2>/dev/null || true
+)"
+if [[ "$app_group" != "group.com.solemu.app" ]]; then
+  echo "The audit app is missing Sol's App Group." >&2
+  exit 1
+fi
 
 echo "$APP"

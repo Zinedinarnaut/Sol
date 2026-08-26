@@ -1,10 +1,11 @@
 using Ryujinx.Common;
+using System;
 using System.Threading;
 using System.Timers;
 
 namespace Ryujinx.HLE
 {
-    public class PerformanceStatistics
+    public class PerformanceStatistics : IDisposable
     {
         private readonly Switch _device;
 
@@ -171,6 +172,14 @@ namespace Ryujinx.HLE
             double fifoPercent = GetFifoPercent();
 
             return $"FIFO: {fifoPercent:00.00}%";
+        }
+
+        public void Dispose()
+        {
+            _resetTimer.Stop();
+            _resetTimer.Elapsed -= ResetTimerElapsed;
+            _resetTimer.Dispose();
+            GC.SuppressFinalize(this);
         }
     }
 }

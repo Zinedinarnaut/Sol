@@ -90,6 +90,10 @@ if [ -d "$APP" ]; then
   check "engine managed present"     test -f "$APP/Contents/Resources/SolEngineManaged/Sol.Engine.dll"
   check ".NET runtime present"       test -f "$APP/Contents/Resources/Dotnet/shared/Microsoft.NETCore.App/10.0.9/libcoreclr.dylib"
   check "NativeHost dylib present"   test -f "$APP/Contents/Frameworks/Sol.Engine.NativeHost.dylib"
+  check "SolMetal dylib present"     test -f "$APP/Contents/Frameworks/SolMetal.dylib"
+  check "SolMetal is Vulkan-free"    sh -c '
+    ! /usr/bin/otool -L "$1" | /usr/bin/grep -Eiq "MoltenVK|Vulkan"
+  ' sh "$APP/Contents/Frameworks/SolMetal.dylib"
   for ext in SolWidgets SolQuickLook SolShare; do
     check "$ext extension present" test -d "$APP/Contents/PlugIns/$ext.appex"
   done

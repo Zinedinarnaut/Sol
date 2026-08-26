@@ -47,6 +47,13 @@ namespace Ryujinx.HLE.HOS.Services.Time.TimeZone
             InitializeLocationNameCache();
         }
 
+        internal void ReleaseInstance()
+        {
+            _virtualFileSystem = null;
+            _contentManager = null;
+            LocationNameCache = null;
+        }
+
         public string SanityCheckDeviceLocationName(string locationName)
         {
             if (IsLocationNameValid(locationName))

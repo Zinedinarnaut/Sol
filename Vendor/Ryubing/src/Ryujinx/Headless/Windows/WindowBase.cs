@@ -77,6 +77,7 @@ namespace Ryujinx.Headless
         private readonly CancellationTokenSource _gpuCancellationTokenSource;
         private readonly ManualResetEvent _exitEvent;
         private readonly ManualResetEvent _gpuDoneEvent;
+        private Thread _renderLoopThread;
 
         private long _ticks;
         private bool _isActive;
@@ -137,7 +138,16 @@ namespace Ryujinx.Headless
         private void SetWindowIcon()
         {
             Stream iconStream = EmbeddedResources.GetStream("Ryujinx/Assets/UIImages/Logo_Ryujinx.png");
-            byte[] iconBytes = new byte[iconStream!.Length];
+            if (iconStream == null)
+            {
+                // Sol intentionally does not ship the upstream UI artwork.
+                // A standalone developer window can use the system default
+                // icon; missing optional branding must not abort emulation.
+                Logger.Warning?.Print(LogClass.Application, "Standalone window icon is unavailable; using the system default.");
+                return;
+            }
+
+            byte[] iconBytes = new byte[iconStream.Length];
 
             if (iconStream.Read(iconBytes, 0, iconBytes.Length) != iconBytes.Length)
             {
@@ -341,6 +351,8 @@ namespace Ryujinx.Headless
 
             _gpuDriverName = GetGpuDriverName();
 
+            NativeBenchmarkRecorder.Begin(_gpuDriverName);
+
             Device.Gpu.Renderer.RunLoop(() =>
             {
                 Device.Gpu.SetGpuThread();
@@ -350,7 +362,7 @@ namespace Ryujinx.Headless
                 {
                     if (_isStopped)
                     {
-                        return;
+                        break;
                     }
 
                     _ticks += _chrono.ElapsedTicks;
@@ -367,6 +379,9 @@ namespace Ryujinx.Headless
                     while (Device.ConsumeFrameAvailable())
                     {
                         Device.PresentFrame(SwapBuffers);
+                        NativeBenchmarkRecorder.RecordPresentation(
+                            Device.Statistics.GetGameFrameRate(),
+                            Device.Statistics.GetFifoPercent());
                     }
 
                     if (_ticks >= _ticksPerFrame)
@@ -384,6 +399,7 @@ namespace Ryujinx.Headless
                 _gpuDoneEvent.Set();
             });
 
+            NativeBenchmarkRecorder.Complete();
             FinalizeWindowRenderer();
         }
 
@@ -501,11 +517,11 @@ namespace Ryujinx.Headless
 
             InitializeWindow();
 
-            Thread renderLoopThread = new(Render)
+            _renderLoopThread = new Thread(Render)
             {
                 Name = "GUI.RenderLoop",
             };
-            renderLoopThread.Start();
+            _renderLoopThread.Start();
 
             Thread nvidiaStutterWorkaround = null;
             if (Renderer is OpenGLRenderer)
@@ -519,13 +535,37 @@ namespace Ryujinx.Headless
 
             MainLoop();
 
-            // NOTE: The render loop is allowed to stay alive until the renderer itself is disposed, as it may handle resource dispose.
-            // We only need to wait for all commands submitted during the main gpu loop to be processed.
+            // The render loop stays alive until the renderer is disposed so it
+            // can finish backend cleanup. Waiting for it here would deadlock:
+            // ExecutionEntrypoint disposes the emulation context only after
+            // Execute returns. Wait for submitted GPU work here, then join the
+            // render loop after the context has been disposed.
             _gpuDoneEvent.WaitOne();
             _gpuDoneEvent.Dispose();
             nvidiaStutterWorkaround?.Join();
 
             Exit();
+        }
+
+        public void WaitForRendererShutdown()
+        {
+            _renderLoopThread?.Join();
+            _renderLoopThread = null;
+        }
+
+        public void ShutdownEmbeddedRenderer()
+        {
+            if (!NativeEmbeddedEntrypoint.IsEmbedded)
+            {
+                throw new InvalidOperationException(
+                    "External renderer shutdown is reserved for the embedded host.");
+            }
+
+            // ThreadedRenderer.Dispose stops and joins its backend loop before
+            // destroying the Vulkan renderer. Calling it from the engine
+            // thread breaks the otherwise circular dependency where the
+            // backend loop waits for Dispose and Execute waits for the loop.
+            Device.DisposeGpu();
         }
 
         public bool DisplayInputDialog(SoftwareKeyboardUIArgs args, out string userText)

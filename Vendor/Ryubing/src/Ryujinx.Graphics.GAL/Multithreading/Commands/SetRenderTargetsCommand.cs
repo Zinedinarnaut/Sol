@@ -32,7 +32,10 @@ namespace Ryujinx.Graphics.GAL.Multithreading.Commands
             
             renderer.Pipeline.SetRenderTargets(colorsSpan, command._depthStencil.GetAs<ThreadedTexture>(threaded)?.Base);
             
-            ArrayPool.Return(colors);
+            // This is a process-wide pool in the embedded host. Clearing the
+            // reference array prevents disposed TextureView instances from
+            // retaining an entire renderer and guest session between games.
+            ArrayPool.Return(colors, clearArray: true);
         }
     }
 }

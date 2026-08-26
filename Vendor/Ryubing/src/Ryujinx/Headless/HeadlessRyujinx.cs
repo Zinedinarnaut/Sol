@@ -401,6 +401,17 @@ namespace Ryujinx.Headless
 
         private static WindowBase CreateWindow(Options options)
         {
+            if (IsSolMetalGalRequested())
+            {
+                return new SolMetalWindow(
+                    _inputManager,
+                    options.LoggingGraphicsDebugLevel,
+                    options.AspectRatio,
+                    options.EnableMouse,
+                    options.HideCursorMode,
+                    options.IgnoreControllerApplet
+                );
+            }
             return options.GraphicsBackend switch
             {
                 GraphicsBackend.Vulkan => new VulkanWindow(_inputManager, options.LoggingGraphicsDebugLevel, options.AspectRatio, options.EnableMouse, options.HideCursorMode, options.IgnoreControllerApplet),
@@ -422,6 +433,11 @@ namespace Ryujinx.Headless
             _window.Execute();
 
             _emulationContext.Dispose();
+            if (NativeEmbeddedEntrypoint.IsEmbedded)
+            {
+                _window.ShutdownEmbeddedRenderer();
+                _window.WaitForRendererShutdown();
+            }
             _window.Dispose();
             _emulationContext = null;
             _window = null;

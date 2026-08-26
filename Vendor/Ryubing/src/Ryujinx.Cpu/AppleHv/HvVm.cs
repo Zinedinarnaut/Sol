@@ -14,6 +14,8 @@ namespace Ryujinx.Cpu.AppleHv
         private static HvIpaAllocator _ipaAllocator;
         private static readonly Lock _lock = new();
 
+        internal static int ActiveAddressSpaces => Volatile.Read(ref _addressSpaces);
+
         public static (ulong, HvIpaAllocator) CreateAddressSpace(MemoryBlock block)
         {
             HvIpaAllocator ipaAllocator;

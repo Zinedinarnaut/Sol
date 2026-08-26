@@ -64,6 +64,13 @@ namespace Ryujinx.HLE.HOS.Services.Time
             TimeZone.Initialize(this, device);
         }
 
+        public void ReleaseSessionResources()
+        {
+            StandardUserSystemClock.ReleaseAutomaticCorrectionEvent();
+            SharedMemory.Release();
+            TimeZone.ReleaseInstance();
+        }
+
         public void SetupStandardSteadyClock(ITickSource tickSource, UInt128 clockSourceId, TimeSpanType setupValue, TimeSpanType internalOffset, TimeSpanType testOffset, bool isRtcResetDetected)
         {
             SetupInternalStandardSteadyClock(clockSourceId, setupValue, internalOffset, testOffset, isRtcResetDetected);

@@ -544,7 +544,21 @@ namespace Ryujinx.HLE.HOS.Applets
 
         private bool HandleKeyPressedEvent(Key key)
         {
-            if (key == CycleInputModesKey)
+            if (key is Key.Enter or Key.KeypadEnter or Key.Escape)
+            {
+                lock (_lock)
+                {
+                    if (IsKeyboardActive())
+                    {
+                        PushUpdatedState(
+                            _textValue,
+                            _cursorBegin,
+                            key == Key.Escape ? KeyboardResult.Cancel : KeyboardResult.Accept
+                        );
+                    }
+                }
+            }
+            else if (key == CycleInputModesKey)
             {
                 lock (_lock)
                 {

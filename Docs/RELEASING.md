@@ -1,16 +1,16 @@
 # Releasing Sol
 
-Sol has two distribution tiers: the current ad-hoc-signed Developer Preview and
-the future Developer ID signed/notarized release. Both are built from a tag on
-`main`; never upload a local debug app.
+Sol publishes source-only development snapshots, ad-hoc-signed Developer
+Previews, and eventually Developer ID signed/notarized releases. Every release
+comes from a tag on `main`; never upload a local debug app.
 
 ## Version contract
 
 The release version lives in `project.yml`:
 
 ```yaml
-MARKETING_VERSION: "0.2.1"
-CURRENT_PROJECT_VERSION: "4"
+MARKETING_VERSION: "0.3.0"
+CURRENT_PROJECT_VERSION: "5"
 ```
 
 For every release:
@@ -21,8 +21,24 @@ For every release:
 4. Merge to `main` and wait for every CI job to pass.
 5. Create an annotated `v<version>` tag on that `main` commit and push it.
 
-The Release workflow rejects a tag that does not match `MARKETING_VERSION`,
-lacks notes, or points outside `main`.
+The Release workflow rejects a tag whose base version does not match
+`MARKETING_VERSION`, lacks notes, or points outside `main`.
+
+## Source-only developer preview
+
+Use `v<version>-preview.<number>` for a development checkpoint that should be
+reviewable on GitHub but does not need an app download. For example:
+
+```bash
+git tag -a v0.3.0-preview.1 -m "Sol 0.3.0 Developer Preview 1"
+git push origin v0.3.0-preview.1
+```
+
+Add matching notes at `Docs/Releases/<version>-preview.<number>.md`. The release
+workflow runs the source audits and Swift tests, then creates a GitHub
+prerelease without custom assets. GitHub still provides its normal tagged
+source archives. Sol's updater ignores this release because there is no DMG and
+checksum pair.
 
 ## Developer Preview DMG
 

@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Zinedinarnaut/Sol/releases"><strong>Download the latest preview</strong></a>
+  <a href="https://github.com/Zinedinarnaut/Sol/releases"><strong>Latest development preview</strong></a>
   ·
   <a href="#build-from-source">Build from source</a>
   ·
@@ -28,19 +28,23 @@ game controls. Games currently render into an AppKit-owned Metal surface
 through Vulkan and MoltenVK, while the direct SolMetal renderer is developed
 behind an experimental flag.
 
-This is an early developer preview for Apple Silicon Macs running macOS 15 or
-later. It is usable, but compatibility and repeated-session stability are still
-being widened with every release.
+Sol is still early. The Vulkan/MoltenVK backend is the normal way to play;
+SolMetal is published for renderer development and has to be enabled manually.
+Apple Silicon and macOS 15 or later are required.
 
-## Download
+## Releases
 
-Get the current disk image from [GitHub Releases](https://github.com/Zinedinarnaut/Sol/releases).
+The newest renderer work may be published as a source-only developer preview.
+Those previews are for people building Sol or helping test the renderer, and do
+not include an application download.
+
+When a release includes a disk image, install it like this:
 
 1. Open `Sol-<version>-macOS.dmg`.
 2. Drag Sol to Applications.
 3. Open Sol.
 
-Preview builds are ad-hoc signed and not yet notarized. If macOS blocks the
+Packaged previews are ad-hoc signed and not yet notarized. If macOS blocks the
 first launch, open **System Settings → Privacy & Security** and choose
 **Open Anyway** for Sol. Sol never asks you to disable Gatekeeper globally.
 

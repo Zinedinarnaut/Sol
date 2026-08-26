@@ -13,8 +13,8 @@
     <SelfContained>true</SelfContained>
     <PublishSingleFile>true</PublishSingleFile>
     <PublishTrimmed>false</PublishTrimmed>
-    <Version>0.2.1</Version>
-    <InformationalVersion>0.2.1-sol+a82350bb774f70fcbd41c9987bf67a3775409963</InformationalVersion>
+    <Version>0.3.0</Version>
+    <InformationalVersion>0.3.0-sol+a82350bb774f70fcbd41c9987bf67a3775409963</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <RyubingRoot>$(MSBuildThisFileDirectory)..\..\Vendor\Ryubing</RyubingRoot>
   </PropertyGroup>

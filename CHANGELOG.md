@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.3.0-preview.1 — 2026-08-26
+
+- Added the first end-to-end SolMetal renderer path, including native Metal
+  resources, SPIR-V translation, presentation, lifecycle handling, and a
+  versioned Sol Engine bridge.
+- Added repeatable native, managed-bridge, compatibility, and visual regression
+  tests for SolMetal. The renderer remains developer-only and reports itself as
+  not yet playable.
+- Added a native first-run setup and expanded profiles with custom avatars,
+  play activity, captures, Save Vault, local friends, and opt-in iCloud backup
+  foundations.
+- Hardened rapid keyboard input, repeated game sessions, playtime checkpoints,
+  shader-cache loading, and native engine teardown.
+- Published this checkpoint as source only. The normal Vulkan/MoltenVK backend
+  remains Sol's default, and public DLSM modes remain disabled.
+
 ## 0.2.1 — 2026-08-08
 
 - Fixed fresh installs showing a missing `Config.json` error before Sol Engine

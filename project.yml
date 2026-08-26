@@ -11,8 +11,8 @@ settings:
   base:
     ARCHS: arm64
     SWIFT_VERSION: "5.9"
-    MARKETING_VERSION: "0.2.1"
-    CURRENT_PROJECT_VERSION: "4"
+    MARKETING_VERSION: "0.3.0"
+    CURRENT_PROJECT_VERSION: "5"
 
 packages:
   DockProgress:

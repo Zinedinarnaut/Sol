@@ -44,7 +44,7 @@ extensions remain sandboxed. See [`SECURITY_MODEL.md`](SECURITY_MODEL.md).
    existing Cocoa surface while MoltenVK presents the Vulkan renderer through
    Apple's native window stack. SDL is a platform and input layer here, not an
    application UI toolkit.
-5. Software-keyboard, confirmation, controller, error, and Amiibo applet
+5. Software-keyboard, confirmation, controller, error, and NFC-figure applet
    prompts cross the protocol and are presented as native AppKit dialogs.
 6. Controller discovery and player routing use the engine's SDL device IDs;
    the native Controller pane can install default Sol Engine mappings for players
@@ -62,6 +62,19 @@ extensions remain sandboxed. See [`SECURITY_MODEL.md`](SECURITY_MODEL.md).
    renderer provider supplies those semantics. Frame Generation remains gated
    behind that stricter native contract, and normal public launches disable
    DLSM entirely.
+9. `SolMetal.dylib` is now embedded as a separate, versioned native Metal
+   renderer foundation. Sol Engine can query its Apple GPU capabilities and run
+   destructive buffer, texture, compute, raster, shader-cache, binary-archive,
+   presentation, and teardown validation. It is deliberately not selectable
+   for games until it implements the complete GAL renderer contract; gameplay
+   continues to use the known Vulkan/MoltenVK path.
+10. An opt-in developer bootstrap may present one clearly labeled SolMetal
+    clear frame into the borrowed game layer before Vulkan starts. It never
+    publishes the guest first-frame event and does not change the selected
+    gameplay renderer.
+
+The implementation gates and remaining renderer milestones are tracked in
+[`SOLMETAL.md`](SOLMETAL.md).
 
 The engine and surface now share the Sol process, so Cocoa pointers never
 cross a process boundary. The Swift host owns their lifetime; the managed

@@ -1,8 +1,9 @@
 # Developing Sol
 
 Sol builds as one native macOS application with a bundled managed engine,
-native host bridge, private .NET runtime, and three app extensions. The normal
-workflow does not clone another repository and does not install .NET globally.
+native host bridge, experimental SolMetal library, private .NET runtime, and
+three app extensions. The normal workflow does not clone another repository
+and does not install .NET globally.
 
 ## Requirements
 
@@ -41,7 +42,43 @@ Run the Swift and Metal boundary tests:
 
 ```bash
 swift test
+./script/test_sol_metal.sh
+./script/test_sol_metal_bridge.sh
 ```
+
+The bridge gate also runs the controlled managed GAL resource path. It creates
+shared and private Metal buffers through `IRenderer`, copies and reads back a
+non-aligned payload, round-trips a non-aligned 2D texture, creates a native
+sampler, executes resource-bound indexed raster work with depth, blending,
+culling and readback, dispatches compute work, then retires a guest sync ID on
+SolMetal's queue timeline. This is deliberately not a compatibility claim.
+
+The first SolMetal test stays outside the emulator and stresses native Metal
+resources, shaders, binary archives, presentation, sanitizers, leaks, threads,
+and repeated teardown. The bridge test proves Sol Engine can load the ABI from
+the bundle boundary and can contain a missing or malformed library safely. See
+[SolMetal](SOLMETAL.md) for the current milestone status.
+
+To exercise SolMetal's developer-only launch-layer bootstrap before the normal
+Vulkan guest renderer starts:
+
+```bash
+SOL_APPLE_SIGNING=off ./script/build_and_run.sh --solmetal-bootstrap
+```
+
+The bootstrap emits `solmetal.bootstrap-frame`; it is not a guest-renderer
+selection and must not be treated as `launch.first-frame`.
+
+To exercise the fail-closed embedded GAL renderer instead of creating a Vulkan
+surface:
+
+```bash
+SOL_METAL_GAL_BACKEND=1 SOL_APPLE_SIGNING=off ./script/build_and_run.sh run
+```
+
+The first unsupported GAL contract stops this developer run with a precise
+error. Normal launches remain on the stable Vulkan/MoltenVK backend until the
+native path passes the full real-game lifecycle gate.
 
 Build only the managed Sol Engine:
 
@@ -94,6 +131,7 @@ The post-build embedding step creates these important app paths:
 ```text
 Sol.app/Contents/Frameworks/SolDLSM.framework
 Sol.app/Contents/Frameworks/Sol.Engine.NativeHost.dylib
+Sol.app/Contents/Frameworks/SolMetal.dylib
 Sol.app/Contents/Resources/SolEngine/
 Sol.app/Contents/Resources/SolEngineManaged/
 Sol.app/Contents/Resources/Dotnet/

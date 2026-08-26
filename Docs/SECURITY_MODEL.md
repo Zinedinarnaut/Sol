@@ -13,6 +13,10 @@ multiplayer traffic. Sol owns `~/Library/Application Support/Sol` and never
 probes another application's data directory during startup. A native import
 picker can copy missing compatible items into Sol's directory after the user
 explicitly selects a source; existing Sol files are not overwritten.
+Profile images follow the same user-consent boundary. Sol accepts an image only
+after it is selected in the native file picker, limits the source to 25 MB,
+applies its orientation, center-crops it to a square, and writes a fresh PNG
+without the source image's private metadata. The original file is never changed.
 
 Provisioned Release archives enable Hardened Runtime and use the narrow runtime
 exceptions needed by the engine:
@@ -49,11 +53,50 @@ end-to-end validation.
 
 ## Apple services
 
-The main provisioned target declares Sign in with Apple, iCloud key-value
-storage, time-sensitive notifications, and the Sol App Group. These services
-fail closed when the local signing team or provisioning profile does not grant
-them. The ad-hoc public preview does not claim that Apple account services are
-available.
+The main provisioned target declares Sign in with Apple, an iCloud Documents
+container, iCloud key-value storage, time-sensitive notifications, and the Sol
+App Group. These services fail closed when the local signing team or
+provisioning profile does not grant them. The ad-hoc public preview does not
+claim that Apple account services are available.
+
+Sign in with Apple establishes Sol's account identity: the app-scoped Apple
+subject is kept in Keychain and its credential state is checked with Apple.
+It does not provide a friends list, presence service, or multiplayer relay.
+Those features still require a Sol Friends provider that verifies Apple's
+authorization server-side and issues its own revocable session.
+
+### Sol Cloud data boundary
+
+Sol Cloud stores account-scoped, content-addressed snapshots in the app's
+private iCloud Documents container. The raw Sign in with Apple subject stays in
+Keychain; a one-way account namespace is used for the cloud directory. Sol
+verifies each blob by SHA-256 before applying a restore.
+
+Included data is deliberately limited to:
+
+- live user saves and Save Vault restore points;
+- screenshots shown in the profile Captures page;
+- Sol profile data, custom avatars, local friends, requests, and recent players;
+- Sol Engine game users and play activity;
+- portable launcher and engine preferences; and
+- portable mod and cheat enablement, with paths rebuilt for the receiving Mac.
+
+Sol never uploads games, keys, firmware, DLC or update packages, shader/cache
+data, logs, security-scoped bookmarks, controller identifiers, multiplayer
+passphrases, or absolute device paths. DLC and update registration files stay
+local because they point to content on a particular Mac. Developer settings,
+including shader-dump locations and GDB, also stay local.
+
+Cloud work is deferred while a game is running. A restore first writes a local
+recovery copy, stages and hashes every cloud blob, then replaces save data. If
+both sides changed, Sol asks which copy to keep instead of silently choosing.
+Changing Apple Accounts pauses automatic upload until the user explicitly
+chooses the local or cloud copy, preventing one account's local data from being
+sent to another account by default. Sol relies on iCloud's storage protection;
+it does not advertise a separate Sol-managed encryption layer.
+
+The guest GDB stub is a developer-only feature. Sol's engine patch binds it to
+`127.0.0.1`, not every network interface, and it remains disabled by default.
 
 ## Capabilities intentionally omitted
 

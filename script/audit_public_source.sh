@@ -58,9 +58,7 @@ if git grep -n -I -E -- 'DEVELOPMENT_TEAM[[:space:]]*[:=][[:space:]]*[A-Z0-9]{10
 fi
 
 for image_path in \
-  Docs/Images/sol-library.jpg \
-  Docs/Images/sol-settings.jpg \
-  Docs/Images/sol-controllers.jpg; do
+  Docs/Images/sol-logo.png; do
   if [[ ! -s "$image_path" ]]; then
     report "README image is missing: $image_path"
   fi

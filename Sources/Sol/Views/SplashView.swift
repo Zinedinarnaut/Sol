@@ -16,10 +16,16 @@ struct SplashView: View {
                     .frame(width: 88, height: 88)
                     .background(
                         .regularMaterial,
-                        in: RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        in: RoundedRectangle(
+                            cornerRadius: SolGeometry.cardCornerRadius,
+                            style: .continuous
+                        )
                     )
                     .overlay {
-                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        RoundedRectangle(
+                            cornerRadius: SolGeometry.cardCornerRadius,
+                            style: .continuous
+                        )
                             .stroke(Color.primary.opacity(0.08), lineWidth: 1)
                     }
                     .accessibilityHidden(true)

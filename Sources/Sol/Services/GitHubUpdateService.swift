@@ -3,84 +3,28 @@ import Combine
 import CryptoKit
 import Foundation
 import OSLog
+import SemanticVersion
 
 struct SolSemanticVersion: Comparable, Hashable, Sendable, CustomStringConvertible {
-    private enum Identifier: Hashable, Sendable {
-        case number(Int)
-        case text(String)
-    }
-
-    private let core: [Int]
-    private let prerelease: [Identifier]?
+    private let value: SemanticVersion
     let description: String
 
     init?(_ rawValue: String) {
-        var value = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        if value.lowercased().hasPrefix("v") {
-            value.removeFirst()
-        }
-        value = value.split(separator: "+", maxSplits: 1).first.map(String.init) ?? value
-
-        let pieces = value.split(separator: "-", maxSplits: 1, omittingEmptySubsequences: false)
-        let corePieces = pieces[0].split(separator: ".", omittingEmptySubsequences: false)
-        guard corePieces.count >= 3 else { return nil }
-        let parsedCore = corePieces.compactMap { Int($0) }
-        guard parsedCore.count == corePieces.count,
-              parsedCore.allSatisfy({ $0 >= 0 }) else {
-            return nil
-        }
-
-        if pieces.count == 2 {
-            let identifiers = pieces[1].split(separator: ".", omittingEmptySubsequences: false)
-            guard !identifiers.isEmpty,
-                  identifiers.allSatisfy({ !$0.isEmpty }) else {
-                return nil
-            }
-            prerelease = identifiers.map { value in
-                if let number = Int(value) {
-                    return .number(number)
-                }
-                return .text(value.lowercased())
-            }
-        } else {
-            prerelease = nil
-        }
-
-        core = parsedCore
-        description = value
+        let normalized = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let parsed = SemanticVersion(normalized) else { return nil }
+        // Build metadata does not participate in precedence or Sol's release
+        // identity. Dropping it also keeps `v0.2.0+4` equal to `0.2.0`.
+        value = SemanticVersion(
+            parsed.major,
+            parsed.minor,
+            parsed.patch,
+            parsed.preRelease
+        )
+        description = value.description
     }
 
     static func < (lhs: SolSemanticVersion, rhs: SolSemanticVersion) -> Bool {
-        let coreCount = max(lhs.core.count, rhs.core.count)
-        for index in 0..<coreCount {
-            let left = index < lhs.core.count ? lhs.core[index] : 0
-            let right = index < rhs.core.count ? rhs.core[index] : 0
-            if left != right { return left < right }
-        }
-
-        switch (lhs.prerelease, rhs.prerelease) {
-        case (nil, nil):
-            return false
-        case (nil, .some):
-            return false
-        case (.some, nil):
-            return true
-        case let (.some(left), .some(right)):
-            for index in 0..<min(left.count, right.count) {
-                if left[index] == right[index] { continue }
-                switch (left[index], right[index]) {
-                case let (.number(a), .number(b)):
-                    return a < b
-                case (.number, .text):
-                    return true
-                case (.text, .number):
-                    return false
-                case let (.text(a), .text(b)):
-                    return a < b
-                }
-            }
-            return left.count < right.count
-        }
+        lhs.value < rhs.value
     }
 }
 

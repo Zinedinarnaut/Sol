@@ -40,23 +40,43 @@ actor ThumbnailService {
         }
 
         if let titleId = game.titleId {
-            if let image = await fetchFromNlib(titleId: titleId, cacheKey: cacheKey, preferBanner: false) {
+            if let image = await fetchFromNlib(
+                titleId: titleId,
+                cacheKey: cacheKey,
+                preferBanner: false,
+                targetPixelSize: targetPixelSize
+            ) {
                 return image
             }
         }
 
-        if let image = await fetchFromPlatformSearch(game: game, cacheKey: cacheKey, preferWide: false) {
+        if let image = await fetchFromPlatformSearch(
+            game: game,
+            cacheKey: cacheKey,
+            preferWide: false,
+            targetPixelSize: targetPixelSize
+        ) {
             return image
         }
 
         return nil
     }
 
-    func fetchBackground(for game: Game) async -> NSImage? {
+    func fetchBackground(
+        for game: Game,
+        targetPixelSize: Int? = nil
+    ) async -> NSImage? {
         let artworkKey = game.titleId ?? game.title
         let cacheKey = artworkKey + ":bg-v\(backgroundCacheVersion())"
         if let data = cache.imageData(forKey: cacheKey) {
             if isValidBackground(data) {
+                if let targetPixelSize,
+                   let scaled = cache.scaledImage(
+                       forKey: cacheKey,
+                       maxPixelSize: targetPixelSize
+                   ) {
+                    return scaled
+                }
                 return NSImage(data: data)
             } else {
                 cache.remove(forKey: cacheKey)
@@ -65,12 +85,24 @@ actor ThumbnailService {
 
         // The platform artwork provider is primary. Nlib remains a fallback
         // because it can provide banners for titles the primary source misses.
-        if let image = await fetchFromPlatformSearch(game: game, cacheKey: cacheKey, preferWide: true, validateBackground: true) {
+        if let image = await fetchFromPlatformSearch(
+            game: game,
+            cacheKey: cacheKey,
+            preferWide: true,
+            validateBackground: true,
+            targetPixelSize: targetPixelSize
+        ) {
             return image
         }
 
         if let titleId = game.titleId {
-            if let image = await fetchFromNlib(titleId: titleId, cacheKey: cacheKey, preferBanner: true, validateBackground: true) {
+            if let image = await fetchFromNlib(
+                titleId: titleId,
+                cacheKey: cacheKey,
+                preferBanner: true,
+                validateBackground: true,
+                targetPixelSize: targetPixelSize
+            ) {
                 return image
             }
         }
@@ -80,7 +112,7 @@ actor ThumbnailService {
             return cachedCover
         }
 
-        return await fetchThumbnail(for: game)
+        return await fetchThumbnail(for: game, targetPixelSize: targetPixelSize)
     }
 
     private func backgroundCacheVersion() -> Int {
@@ -88,7 +120,13 @@ actor ThumbnailService {
         return max(stored, 2)
     }
 
-    private func fetchFromNlib(titleId: String, cacheKey: String, preferBanner: Bool, validateBackground: Bool = false) async -> NSImage? {
+    private func fetchFromNlib(
+        titleId: String,
+        cacheKey: String,
+        preferBanner: Bool,
+        validateBackground: Bool = false,
+        targetPixelSize: Int? = nil
+    ) async -> NSImage? {
         guard let url = URL(string: "https://api.nlib.cc/nx/\(titleId)?fields=name,icon,banner") else { return nil }
         do {
             let (data, response) = try await session.data(from: url)
@@ -97,14 +135,27 @@ actor ThumbnailService {
 
             if preferBanner {
                 if let bannerURLString = info.banner, let bannerURL = secureURL(from: bannerURLString) {
-                    return await fetchImageData(from: bannerURL, cacheKey: cacheKey, validateBackground: validateBackground)
+                    return await fetchImageData(
+                        from: bannerURL,
+                        cacheKey: cacheKey,
+                        validateBackground: validateBackground,
+                        targetPixelSize: targetPixelSize
+                    )
                 }
             } else {
                 if let iconURLString = info.icon, let iconURL = secureURL(from: iconURLString) {
-                    return await fetchImageData(from: iconURL, cacheKey: cacheKey)
+                    return await fetchImageData(
+                        from: iconURL,
+                        cacheKey: cacheKey,
+                        targetPixelSize: targetPixelSize
+                    )
                 }
                 if let bannerURLString = info.banner, let bannerURL = secureURL(from: bannerURLString) {
-                    return await fetchImageData(from: bannerURL, cacheKey: cacheKey)
+                    return await fetchImageData(
+                        from: bannerURL,
+                        cacheKey: cacheKey,
+                        targetPixelSize: targetPixelSize
+                    )
                 }
             }
         } catch {
@@ -113,7 +164,13 @@ actor ThumbnailService {
         return nil
     }
 
-    private func fetchFromPlatformSearch(game: Game, cacheKey: String, preferWide: Bool, validateBackground: Bool = false) async -> NSImage? {
+    private func fetchFromPlatformSearch(
+        game: Game,
+        cacheKey: String,
+        preferWide: Bool,
+        validateBackground: Bool = false,
+        targetPixelSize: Int? = nil
+    ) async -> NSImage? {
         guard let url = platformSearchURL(query: game.title) else { return nil }
         do {
             let (data, response) = try await session.data(from: url)
@@ -153,7 +210,8 @@ actor ThumbnailService {
                     if let image = await fetchImageData(
                         from: imageURL,
                         cacheKey: cacheKey,
-                        validateBackground: validateBackground
+                        validateBackground: validateBackground,
+                        targetPixelSize: targetPixelSize
                     ) {
                         return image
                     }
@@ -165,7 +223,12 @@ actor ThumbnailService {
         }
     }
 
-    private func fetchImageData(from url: URL, cacheKey: String, validateBackground: Bool = false) async -> NSImage? {
+    private func fetchImageData(
+        from url: URL,
+        cacheKey: String,
+        validateBackground: Bool = false,
+        targetPixelSize: Int? = nil
+    ) async -> NSImage? {
         do {
             let (data, response) = try await session.data(from: url)
             guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else { return nil }
@@ -174,7 +237,12 @@ actor ThumbnailService {
                 return nil
             }
             let fileExt = fileExtension(from: http, url: url)
-            guard let image = cache.store(data: data, forKey: cacheKey, fileExtension: fileExt) else {
+            guard let image = cache.store(
+                data: data,
+                forKey: cacheKey,
+                fileExtension: fileExt,
+                memoryMaxPixelSize: targetPixelSize
+            ) else {
                 return nil
             }
             SharedThumbnailStore.shared.store(data: data, key: cacheKey, fileExtension: fileExt)

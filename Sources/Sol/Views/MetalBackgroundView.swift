@@ -2,6 +2,7 @@ import SwiftUI
 import AppKit
 import Metal
 import MetalKit
+import QuartzCore
 
 struct MetalBackgroundView: NSViewRepresentable {
     let viewSize: CGSize
@@ -32,11 +33,19 @@ struct MetalBackgroundView: NSViewRepresentable {
         )
         mtkView.framebufferOnly = true
         mtkView.autoResizeDrawable = true
-        mtkView.isPaused = false
+        mtkView.isPaused = true
         mtkView.enableSetNeedsDisplay = false
-        mtkView.colorPixelFormat = .bgra8Unorm
+        mtkView.colorPixelFormat = .bgra8Unorm_srgb
         mtkView.clearColor = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 1)
         mtkView.preferredFramesPerSecond = 60
+        if let metalLayer = mtkView.layer as? CAMetalLayer {
+            // The background is event-driven and never needs three frames in
+            // flight. Two drawables preserve smooth crossfades while saving a
+            // full-screen unified-memory surface.
+            metalLayer.maximumDrawableCount = 2
+            metalLayer.presentsWithTransaction = false
+            metalLayer.allowsNextDrawableTimeout = true
+        }
 
         if let renderer = MetalRenderer(mtkView: mtkView) {
             mtkView.delegate = renderer
@@ -93,7 +102,7 @@ struct MetalBackgroundView: NSViewRepresentable {
         return view
     }
 
-    final class Coordinator {
+    @MainActor final class Coordinator {
         var renderer: MetalRenderer?
         var lastBackgroundVersion: Int = -1
     }

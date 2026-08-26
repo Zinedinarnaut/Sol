@@ -75,6 +75,24 @@ struct ControllerManagerView: View {
                     )
                     .id("\(mapping.player.rawValue)-\(mapping.inputID)")
                 }
+
+                Section("Stick, Motion & Feedback") {
+                    ControllerTuningEditor(
+                        tuning: mapping.tuning,
+                        canTestRumble: selectedBackendDevice?.isConnected == true,
+                        isSaving: launcherViewModel.isBackendOperationRunning,
+                        onSave: { tuning in
+                            launcherViewModel.saveControllerTuning(
+                                tuning,
+                                for: selectedPlayer
+                            )
+                        },
+                        onTestRumble: {
+                            launcherViewModel.testControllerRumble(for: selectedPlayer)
+                        }
+                    )
+                    .id("\(mapping.player.rawValue)-\(mapping.inputID)-tuning")
+                }
             }
             .formStyle(.grouped)
         } else if launcherViewModel.isBackendOperationRunning {
@@ -649,6 +667,155 @@ private struct ControllerMappingEditor: View {
             get: { mapping.bindings[control] ?? .unbound },
             set: { onChange(control, $0) }
         )
+    }
+}
+
+private struct ControllerTuningEditor: View {
+    let tuning: SolEngineControllerTuning
+    let canTestRumble: Bool
+    let isSaving: Bool
+    let onSave: (SolEngineControllerTuning) -> Void
+    let onTestRumble: () -> Void
+
+    @State private var draft: SolEngineControllerTuning
+
+    init(
+        tuning: SolEngineControllerTuning,
+        canTestRumble: Bool,
+        isSaving: Bool,
+        onSave: @escaping (SolEngineControllerTuning) -> Void,
+        onTestRumble: @escaping () -> Void
+    ) {
+        self.tuning = tuning
+        self.canTestRumble = canTestRumble
+        self.isSaving = isSaving
+        self.onSave = onSave
+        self.onTestRumble = onTestRumble
+        _draft = State(initialValue: tuning)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Group {
+                tuningSlider("Left stick deadzone", value: $draft.deadzoneLeft, range: 0...0.5)
+                tuningSlider("Right stick deadzone", value: $draft.deadzoneRight, range: 0...0.5)
+                tuningSlider("Left stick range", value: $draft.rangeLeft, range: 0.5...1.5)
+                tuningSlider("Right stick range", value: $draft.rangeRight, range: 0.5...1.5)
+                tuningSlider("Trigger threshold", value: $draft.triggerThreshold, range: 0...1)
+            }
+
+            Divider()
+
+            Toggle("Motion controls", isOn: $draft.motionEnabled)
+            if draft.motionEnabled {
+                LabeledContent("Motion sensitivity") {
+                    HStack(spacing: 8) {
+                        Slider(value: motionSensitivity, in: 1...200, step: 1)
+                            .frame(minWidth: 180)
+                        Text("\(draft.motionSensitivity)%")
+                            .monospacedDigit()
+                            .foregroundStyle(.secondary)
+                            .frame(width: 48, alignment: .trailing)
+                    }
+                }
+                tuningSlider("Gyro deadzone", value: $draft.gyroDeadzone, range: 0...10)
+            }
+
+            Divider()
+
+            Toggle("Game rumble", isOn: $draft.rumbleEnabled)
+            if draft.rumbleEnabled {
+                tuningSlider("Strong motor", value: $draft.strongRumble, range: 0...1)
+                tuningSlider("Weak motor", value: $draft.weakRumble, range: 0...1)
+                Toggle("HD rumble when supported", isOn: $draft.hdRumble)
+            }
+
+            Divider()
+
+            Toggle("Let Sol control the controller light", isOn: $draft.ledEnabled)
+            if draft.ledEnabled {
+                Toggle("Turn light off", isOn: $draft.ledOff)
+                Toggle("Rainbow effect", isOn: $draft.ledRainbow)
+                    .disabled(draft.ledOff)
+                ColorPicker(
+                    "Light color",
+                    selection: ledColor,
+                    supportsOpacity: false
+                )
+                .disabled(draft.ledOff || draft.ledRainbow)
+            }
+
+            HStack {
+                Text("These values are saved in Sol Engine and apply in games.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Spacer()
+
+                Button("Test Rumble") {
+                    onTestRumble()
+                }
+                .disabled(isSaving || !canTestRumble)
+                .help(
+                    canTestRumble
+                        ? "Play a short rumble on the assigned controller"
+                        : "Wake or connect the assigned controller first"
+                )
+
+                Button("Save Tuning") {
+                    onSave(draft)
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(isSaving || draft == tuning)
+            }
+        }
+        .onChange(of: tuning) { _, newValue in
+            guard !isSaving else { return }
+            draft = newValue
+        }
+    }
+
+    private var motionSensitivity: Binding<Double> {
+        Binding(
+            get: { Double(draft.motionSensitivity) },
+            set: { draft.motionSensitivity = Int($0.rounded()) }
+        )
+    }
+
+    private var ledColor: Binding<Color> {
+        Binding(
+            get: {
+                Color(
+                    red: Double((draft.ledColor >> 16) & 0xFF) / 255,
+                    green: Double((draft.ledColor >> 8) & 0xFF) / 255,
+                    blue: Double(draft.ledColor & 0xFF) / 255
+                )
+            },
+            set: { color in
+                guard let converted = NSColor(color).usingColorSpace(.deviceRGB) else { return }
+                let red = UInt32((converted.redComponent * 255).rounded())
+                let green = UInt32((converted.greenComponent * 255).rounded())
+                let blue = UInt32((converted.blueComponent * 255).rounded())
+                draft.ledColor = (red << 16) | (green << 8) | blue
+            }
+        )
+    }
+
+    private func tuningSlider(
+        _ title: String,
+        value: Binding<Double>,
+        range: ClosedRange<Double>
+    ) -> some View {
+        LabeledContent(title) {
+            HStack(spacing: 8) {
+                Slider(value: value, in: range)
+                    .frame(minWidth: 180)
+                Text(value.wrappedValue, format: .number.precision(.fractionLength(2)))
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+                    .frame(width: 42, alignment: .trailing)
+            }
+        }
     }
 }
 

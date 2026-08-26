@@ -85,6 +85,7 @@ struct GameCarouselView: View {
                         .clipped()
                         .coordinateSpace(name: "carousel")
                         .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
+                            guard abs(value - scrollOffset) >= 1.5 else { return }
                             scrollOffset = value
                         }
                         .onAppear {
@@ -189,16 +190,25 @@ private struct NativeLibrarySurface: ViewModifier {
         if #available(macOS 26.0, *) {
             content.glassEffect(
                 .regular.interactive(),
-                in: RoundedRectangle(cornerRadius: 22, style: .continuous)
+                in: RoundedRectangle(
+                    cornerRadius: SolGeometry.panelCornerRadius,
+                    style: .continuous
+                )
             )
         } else {
             content
                 .background(
                     .regularMaterial,
-                    in: RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    in: RoundedRectangle(
+                        cornerRadius: SolGeometry.panelCornerRadius,
+                        style: .continuous
+                    )
                 )
                 .overlay {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    RoundedRectangle(
+                        cornerRadius: SolGeometry.panelCornerRadius,
+                        style: .continuous
+                    )
                         .stroke(.separator.opacity(0.45), lineWidth: 1)
                 }
         }

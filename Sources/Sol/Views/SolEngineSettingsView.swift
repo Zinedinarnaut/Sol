@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import SolDLSM
 
@@ -484,5 +485,165 @@ struct SolEngineAudioSettingsPane: View {
             get: { configuration[keyPath: keyPath] },
             set: { configuration[keyPath: keyPath] = $0 }
         )
+    }
+}
+
+struct SolEngineDeveloperSettingsPane: View {
+    @ObservedObject var configuration: SolEngineConfigurationStore
+
+    var body: some View {
+        Group {
+            if configuration.isLoaded {
+                Form {
+                    Section("Engine Logs") {
+                        Toggle("Write logs to disk", isOn: binding(\.enableFileLog))
+
+                        LabeledContent("Log folder") {
+                            Button("Reveal") {
+                                revealDirectory(named: "Logs")
+                            }
+                        }
+
+                        DisclosureGroup("Log levels") {
+                            Toggle("Debug", isOn: binding(\.loggingEnableDebug))
+                            Toggle("Stub services", isOn: binding(\.loggingEnableStub))
+                            Toggle("Information", isOn: binding(\.loggingEnableInfo))
+                            Toggle("Warnings", isOn: binding(\.loggingEnableWarn))
+                            Toggle("Errors", isOn: binding(\.loggingEnableError))
+                            Toggle("Trace", isOn: binding(\.loggingEnableTrace))
+                            Toggle("Guest logs", isOn: binding(\.loggingEnableGuest))
+                            Toggle("Network logs", isOn: binding(\.loggingEnableNetwork))
+                        }
+
+                        Text("Debug and trace logging can reduce performance and create large files. Logs remain on this Mac and are never included in Sol Cloud.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Section("File-System Diagnostics") {
+                        Toggle(
+                            "Log guest file-system access",
+                            isOn: binding(\.loggingEnableFSAccessLog)
+                        )
+
+                        Picker("Access-log detail", selection: binding(\.fsGlobalAccessLogMode)) {
+                            Text("Off").tag(0)
+                            Text("Errors").tag(1)
+                            Text("Operations").tag(2)
+                            Text("Verbose").tag(3)
+                        }
+                        .disabled(!configuration.loggingEnableFSAccessLog)
+
+                        Toggle(
+                            "Continue past missing guest services",
+                            isOn: binding(\.ignoreMissingServices)
+                        )
+
+                        Label(
+                            "Ignoring missing services is a compatibility diagnostic. It can hide an engine bug or change game behaviour.",
+                            systemImage: "exclamationmark.triangle"
+                        )
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                    }
+
+                    Section("Shader Capture") {
+                        LabeledContent("Dump folder") {
+                            HStack(spacing: 8) {
+                                Text(
+                                    configuration.graphicsShadersDumpPath.isEmpty
+                                        ? "Disabled"
+                                        : configuration.graphicsShadersDumpPath
+                                )
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                                .foregroundStyle(.secondary)
+
+                                Button("Choose…", action: chooseShaderDumpDirectory)
+                                if !configuration.graphicsShadersDumpPath.isEmpty {
+                                    Button("Clear") {
+                                        configuration.graphicsShadersDumpPath = ""
+                                    }
+                                }
+                            }
+                        }
+
+                        Text("Shader dumps can be large and may contain title-specific material. Their location is device-specific and is not synced.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Section("Guest Debugger") {
+                        Toggle("Enable GDB stub", isOn: binding(\.enableGDBStub))
+
+                        LabeledContent("Local port") {
+                            TextField(
+                                "Port",
+                                value: binding(\.gdbStubPort),
+                                format: .number.grouping(.never)
+                            )
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 90)
+                            .disabled(!configuration.enableGDBStub)
+                        }
+
+                        Toggle(
+                            "Suspend guest on launch",
+                            isOn: binding(\.debuggerSuspendOnStart)
+                        )
+                        .disabled(!configuration.enableGDBStub)
+
+                        Label(
+                            "Sol Engine binds GDB to 127.0.0.1 only. Changes take effect the next time a game starts.",
+                            systemImage: "lock.shield"
+                        )
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    }
+
+                    if let error = configuration.lastError {
+                        Section("Configuration Error") {
+                            Label(error, systemImage: "exclamationmark.octagon.fill")
+                                .foregroundStyle(.red)
+                        }
+                    }
+                }
+                .formStyle(.grouped)
+            } else {
+                ContentUnavailableView(
+                    "Developer Settings Unavailable",
+                    systemImage: "hammer",
+                    description: Text("Start Sol Engine once to create its configuration file.")
+                )
+            }
+        }
+    }
+
+    private func binding<Value>(
+        _ keyPath: ReferenceWritableKeyPath<SolEngineConfigurationStore, Value>
+    ) -> Binding<Value> {
+        Binding(
+            get: { configuration[keyPath: keyPath] },
+            set: { configuration[keyPath: keyPath] = $0 }
+        )
+    }
+
+    private func revealDirectory(named name: String) {
+        guard let root = configuration.configURL?.deletingLastPathComponent() else { return }
+        let url = root.appendingPathComponent(name, isDirectory: true)
+        try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        NSWorkspace.shared.open(url)
+    }
+
+    private func chooseShaderDumpDirectory() {
+        let panel = NSOpenPanel()
+        panel.title = "Choose Shader Dump Folder"
+        panel.prompt = "Choose"
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.canCreateDirectories = true
+        panel.allowsMultipleSelection = false
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        configuration.graphicsShadersDumpPath = url.path
     }
 }

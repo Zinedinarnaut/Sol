@@ -14,6 +14,7 @@ struct LibraryBrowserView: View {
     let totalGameCount: Int
     @Binding var selectedGame: Game?
     let thumbnailService: ThumbnailService
+    let modManager: SolModManager
     let isScanning: Bool
     let statusMessage: String?
     let canLaunch: Bool
@@ -32,6 +33,7 @@ struct LibraryBrowserView: View {
                 GameDetailView(
                     game: detailGame,
                     thumbnailService: thumbnailService,
+                    modManager: modManager,
                     canLaunch: canLaunch,
                     onBack: { detailGameID = nil },
                     onLaunch: { onLaunch(detailGame) },
@@ -172,7 +174,7 @@ struct LibraryBrowserView: View {
 
 private struct LibraryGameCard: View {
     private static let coverAspect: CGFloat = 0.714
-    private static let cornerRadius: CGFloat = 16
+    private static let cornerRadius = SolGeometry.cardCornerRadius
 
     let game: Game
     let isSelected: Bool
@@ -257,7 +259,9 @@ private struct LibraryGameCard: View {
                     .frame(width: 34, height: 34)
             }
             .buttonStyle(.borderedProminent)
-            .buttonBorderShape(.circle)
+            .buttonBorderShape(
+                .roundedRectangle(radius: SolGeometry.controlCornerRadius)
+            )
             .controlSize(.small)
             .disabled(!canLaunch)
             .padding(12)
@@ -285,6 +289,7 @@ private struct LibraryGameCard: View {
 private struct GameDetailView: View {
     let game: Game
     let thumbnailService: ThumbnailService
+    let modManager: SolModManager
     let canLaunch: Bool
     let onBack: () -> Void
     let onLaunch: () -> Void
@@ -294,6 +299,7 @@ private struct GameDetailView: View {
     let onRevealGameData: () -> Void
 
     @State private var backgroundImage: NSImage?
+    @State private var isManagingMods = false
 
     var body: some View {
         ScrollView {
@@ -320,7 +326,18 @@ private struct GameDetailView: View {
         }
         .background(.background)
         .task(id: game.id) {
-            backgroundImage = await thumbnailService.fetchBackground(for: game)
+            backgroundImage = await thumbnailService.fetchBackground(
+                for: game,
+                targetPixelSize: 2_048
+            )
+        }
+        .sheet(isPresented: $isManagingMods) {
+            GameModsView(
+                game: game,
+                manager: modManager,
+                onOpenMods: onRevealMods,
+                onOpenSDMods: onRevealSDMods
+            )
         }
     }
 
@@ -354,9 +371,17 @@ private struct GameDetailView: View {
                     targetSize: CGSize(width: 320, height: 448)
                 )
                 .frame(width: 142, height: 199)
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .clipShape(
+                    RoundedRectangle(
+                        cornerRadius: SolGeometry.cardCornerRadius,
+                        style: .continuous
+                    )
+                )
                 .overlay {
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    RoundedRectangle(
+                        cornerRadius: SolGeometry.cardCornerRadius,
+                        style: .continuous
+                    )
                         .stroke(.white.opacity(0.25), lineWidth: 1)
                 }
                 .shadow(color: .black.opacity(0.42), radius: 20, y: 10)
@@ -385,7 +410,9 @@ private struct GameDetailView: View {
                         .frame(minWidth: 76)
                 }
                 .buttonStyle(.borderedProminent)
-                .buttonBorderShape(.capsule)
+                .buttonBorderShape(
+                    .roundedRectangle(radius: SolGeometry.controlCornerRadius)
+                )
                 .controlSize(.large)
                 .disabled(!canLaunch)
 
@@ -395,25 +422,50 @@ private struct GameDetailView: View {
             }
             .padding(24)
         }
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .clipShape(
+            RoundedRectangle(
+                cornerRadius: SolGeometry.panelCornerRadius,
+                style: .continuous
+            )
+        )
         .overlay {
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
+            RoundedRectangle(
+                cornerRadius: SolGeometry.panelCornerRadius,
+                style: .continuous
+            )
                 .stroke(.white.opacity(0.14), lineWidth: 1)
         }
     }
 
     private var details: some View {
-        Grid(alignment: .leading, horizontalSpacing: 28, verticalSpacing: 12) {
-            detailRow("Title ID", game.titleId ?? "Unavailable")
-            detailRow("Format", game.fileURL.pathExtension.uppercased())
-            detailRow("File", game.fileURL.lastPathComponent)
-            if let fileSize {
-                detailRow("Size", fileSize)
+        VStack(alignment: .leading, spacing: 18) {
+            Grid(alignment: .leading, horizontalSpacing: 28, verticalSpacing: 12) {
+                detailRow("Title ID", game.titleId ?? "Unavailable")
+                detailRow("Format", game.fileURL.pathExtension.uppercased())
+                detailRow("File", game.fileURL.lastPathComponent)
+                if let fileSize {
+                    detailRow("Size", fileSize)
+                }
+                detailRow("Playtime", game.formattedPlaytime)
             }
-            detailRow("Playtime", game.formattedPlaytime)
+
+            Divider()
+
+            Button {
+                isManagingMods = true
+            } label: {
+                Label("Manage Mods & Cheats", systemImage: "shippingbox.and.arrow.backward")
+            }
+            .disabled(game.titleId == nil)
         }
         .padding(20)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .background(
+            .regularMaterial,
+            in: RoundedRectangle(
+                cornerRadius: SolGeometry.cardCornerRadius,
+                style: .continuous
+            )
+        )
     }
 
     private func detailRow(_ title: String, _ value: String) -> some View {
@@ -448,6 +500,8 @@ private struct GameDetailView: View {
                 .frame(width: 22, height: 22)
         }
         .buttonStyle(.bordered)
-        .buttonBorderShape(.circle)
+        .buttonBorderShape(
+            .roundedRectangle(radius: SolGeometry.controlCornerRadius)
+        )
     }
 }

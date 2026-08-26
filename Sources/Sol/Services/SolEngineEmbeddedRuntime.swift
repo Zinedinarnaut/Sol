@@ -12,6 +12,14 @@ final class SolEngineEmbeddedRuntime {
         subsystem: "com.solemu.app",
         category: "DLSMDiscovery"
     )
+    private let solMetalLogger = Logger(
+        subsystem: "com.solemu.app",
+        category: "SolMetal"
+    )
+    private let lifecycleLogger = Logger(
+        subsystem: "com.solemu.app",
+        category: "EngineLifecycle"
+    )
     private var host: ManagedSolEngineHost?
     private var pumpTimer: Timer?
     private var resizeTask: Task<Void, Never>?
@@ -148,6 +156,30 @@ final class SolEngineEmbeddedRuntime {
         try send(.dialogResponse(requestID: requestID, accepted: accepted, value: value))
     }
 
+    func updateInlineKeyboard(
+        requestID: String,
+        text: String,
+        cursorBegin: Int,
+        cursorEnd: Int
+    ) throws {
+        try send(
+            .inlineKeyboardUpdate(
+                requestID: requestID,
+                text: text,
+                cursorBegin: cursorBegin,
+                cursorEnd: cursorEnd
+            )
+        )
+    }
+
+    func submitInlineKeyboard(requestID: String, text: String) throws {
+        try send(.inlineKeyboardSubmit(requestID: requestID, text: text))
+    }
+
+    func cancelInlineKeyboard(requestID: String) throws {
+        try send(.inlineKeyboardCancel(requestID: requestID))
+    }
+
     func updateSurfaceSize(for surface: NSView) {
         guard launchID != nil, activeSurface === surface, let host else { return }
         guard let size = SolEngineSurfaceSizing.validatedPixelSize(
@@ -241,6 +273,31 @@ final class SolEngineEmbeddedRuntime {
                 let event = try JSONDecoder().decode(SolEngineNativeEvent.self, from: data)
                 if event.event == "dlsm.attachment-labels", let message = event.message {
                     dlsmDiscoveryLogger.info("\(message, privacy: .public)")
+                }
+                if event.event == "solmetal.bootstrap-frame" {
+                    let message = event.message ?? "SolMetal bootstrap returned no detail"
+                    if event.success == true {
+                        solMetalLogger.info("\(message, privacy: .public)")
+                    } else {
+                        solMetalLogger.error("\(message, privacy: .public)")
+                    }
+                }
+                if event.event == "host.error" {
+                    let message = event.message ?? "Sol Engine reported an unknown error"
+                    lifecycleLogger.error("\(message, privacy: .public)")
+                }
+                if event.event == "embedded.memory-reclaimed" {
+                    let mebibytes = 1_048_576.0
+                    let live = Double(event.managedLiveBytes ?? 0) / mebibytes
+                    let heap = Double(event.managedHeapBytes ?? 0) / mebibytes
+                    let committed = Double(event.managedCommittedBytes ?? 0) / mebibytes
+                    let fragmented = Double(event.managedFragmentedBytes ?? 0) / mebibytes
+                    let workingSet = Double(event.processWorkingSetBytes ?? 0) / mebibytes
+                    let addressSpaces = event.hvAddressSpaces ?? -1
+                    let vcpus = event.hvVcpus ?? -1
+                    lifecycleLogger.info(
+                        "Post-game memory: live \(live, format: .fixed(precision: 1), privacy: .public) MiB, heap \(heap, format: .fixed(precision: 1), privacy: .public) MiB, committed \(committed, format: .fixed(precision: 1), privacy: .public) MiB, fragmented \(fragmented, format: .fixed(precision: 1), privacy: .public) MiB, working set \(workingSet, format: .fixed(precision: 1), privacy: .public) MiB, HV address spaces \(addressSpaces, privacy: .public), vCPUs \(vcpus, privacy: .public)"
+                    )
                 }
                 onSessionEvent?(event)
 

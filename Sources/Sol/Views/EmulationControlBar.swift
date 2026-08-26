@@ -37,11 +37,11 @@ struct EmulationControlBar: View {
             .help("Take Screenshot")
 
             Button(action: viewModel.showAmiiboPicker) {
-                Label("Scan Amiibo", systemImage: "wave.3.right.circle")
+                Label("Scan NFC Figure", systemImage: "wave.3.right.circle")
                     .labelStyle(.iconOnly)
             }
             .disabled(!viewModel.canScanAmiibo)
-            .help("Scan Amiibo")
+            .help("Scan NFC Figure")
 
             HStack(spacing: 7) {
                 Image(systemName: volumeSymbol)
@@ -69,9 +69,18 @@ struct EmulationControlBar: View {
         .controlSize(.large)
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
-        .background(.regularMaterial, in: Capsule())
+        .background(
+            .regularMaterial,
+            in: RoundedRectangle(
+                cornerRadius: SolGeometry.cardCornerRadius,
+                style: .continuous
+            )
+        )
         .overlay {
-            Capsule()
+            RoundedRectangle(
+                cornerRadius: SolGeometry.cardCornerRadius,
+                style: .continuous
+            )
                 .stroke(.separator.opacity(0.5), lineWidth: 1)
         }
         .shadow(color: .black.opacity(0.18), radius: 16, y: 6)

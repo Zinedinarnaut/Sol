@@ -10,6 +10,7 @@ final class LauncherViewModel: ObservableObject {
     @Published var isScanning = false
     @Published var isLaunching = false
     @Published private(set) var embeddedLaunchID: UUID?
+    @Published private(set) var activeLaunchTitle: String?
     @Published var session = SolEngineSessionSnapshot()
     @Published var launchActivity = SolEngineLaunchActivity()
     @Published var backendStatus = SolEngineBackendStatus()
@@ -25,6 +26,8 @@ final class LauncherViewModel: ObservableObject {
     @Published var isAmiiboPickerPresented = false
     @Published var isAmiiboScanPending = false
     @Published var amiiboStatusMessage: String?
+    @Published var inlineKeyboard: SolEngineInlineKeyboard?
+    @Published private(set) var isLauncherInteractionEnabled = false
     @Published var isGamingMode = false {
         didSet {
             gamingModeService.setFullscreenActive(isGamingMode)
@@ -41,8 +44,16 @@ final class LauncherViewModel: ObservableObject {
     let solEngineConfiguration: SolEngineConfigurationStore
     let iCloudProfileSync: ICloudProfileSyncService
     let appleAccount: AppleAccountService
+    let cloudSync: SolCloudSyncService
+    let screenshotLibrary: SolScreenshotLibrary
+    let playActivityLibrary: SolPlayActivityLibrary
+    let saveVault: SolSaveVaultService
+    let modManager: SolModManager
     let updateService: GitHubUpdateService
-    private(set) var embeddedRenderView = SolEngineRenderView()
+    // The render surface owns CAMetalLayer drawable pools and a DLSM pipeline.
+    // Create it only for an active session so the launcher does not keep an
+    // unused Metal presentation stack alive while browsing the library.
+    private(set) var embeddedRenderView: SolEngineRenderView?
 
     private let pathResolver: SolEnginePathResolver
     private let metadataService: SolEngineMetadataService
@@ -65,6 +76,8 @@ final class LauncherViewModel: ObservableObject {
     private var playtimeRefreshTask: Task<Void, Never>?
     private var activeGamesDirectoryAccess: SettingsStore.ScopedAccess?
     private var pendingCloudProfileID: String?
+    private var pendingSolIdentityMirror: PendingSolIdentityMirror?
+    private var requestedProfilesForPendingIdentity = false
     var onFullscreenRequest: ((Bool) -> Void)?
 
     init(
@@ -78,6 +91,11 @@ final class LauncherViewModel: ObservableObject {
         solEngineConfiguration: SolEngineConfigurationStore? = nil,
         iCloudProfileSync: ICloudProfileSyncService? = nil,
         appleAccount: AppleAccountService? = nil,
+        cloudSync: SolCloudSyncService? = nil,
+        screenshotLibrary: SolScreenshotLibrary? = nil,
+        playActivityLibrary: SolPlayActivityLibrary? = nil,
+        saveVault: SolSaveVaultService? = nil,
+        modManager: SolModManager? = nil,
         updateService: GitHubUpdateService? = nil
     ) {
         self.settings = settings
@@ -90,6 +108,11 @@ final class LauncherViewModel: ObservableObject {
         self.solEngineConfiguration = solEngineConfiguration ?? SolEngineConfigurationStore()
         self.iCloudProfileSync = iCloudProfileSync ?? ICloudProfileSyncService()
         self.appleAccount = appleAccount ?? AppleAccountService()
+        self.cloudSync = cloudSync ?? SolCloudSyncService()
+        self.screenshotLibrary = screenshotLibrary ?? SolScreenshotLibrary()
+        self.playActivityLibrary = playActivityLibrary ?? SolPlayActivityLibrary()
+        self.saveVault = saveVault ?? SolSaveVaultService()
+        self.modManager = modManager ?? SolModManager()
         self.updateService = updateService ?? GitHubUpdateService()
 
         settings.$gamesDirectory
@@ -118,6 +141,51 @@ final class LauncherViewModel: ObservableObject {
                 self?.objectWillChange.send()
             }
             .store(in: &cancellables)
+
+        self.cloudSync.objectWillChange
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+            .store(in: &cancellables)
+
+        self.screenshotLibrary.objectWillChange
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+            .store(in: &cancellables)
+
+        self.playActivityLibrary.objectWillChange
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+            .store(in: &cancellables)
+
+        self.saveVault.objectWillChange
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+            .store(in: &cancellables)
+
+        self.saveVault.onChanged = { [weak self] in
+            self?.cloudSync.synchronize(reason: .saveSnapshotChanged)
+        }
+        self.modManager.onChanged = { [weak self] in
+            self?.cloudSync.synchronize(reason: .profileChanged)
+        }
+
+        Publishers.Merge(
+            settings.objectWillChange,
+            self.solEngineConfiguration.objectWillChange
+        )
+        .debounce(for: .milliseconds(750), scheduler: RunLoop.main)
+        .sink { [weak self] _ in
+            guard let self else { return }
+            self.cloudSync.updateLauncherSettingsData(
+                self.settings.cloudSnapshotData()
+            )
+            self.cloudSync.synchronize(reason: .settingsChanged)
+        }
+        .store(in: &cancellables)
 
         self.updateService.objectWillChange
             .sink { [weak self] _ in
@@ -154,14 +222,39 @@ final class LauncherViewModel: ObservableObject {
         self.appleAccount.$state
             .removeDuplicates()
             .sink { [weak self] state in
-                guard let self, state == .connected else { return }
-                if let cloudProfileID = self.iCloudProfileSync.multiplayerProfileID {
-                    self.appleAccount.adoptCloudMultiplayerProfile(cloudProfileID)
-                } else if let localProfileID = self.appleAccount.linkedProfileID {
-                    self.iCloudProfileSync.publishMultiplayerProfile(localProfileID)
+                guard let self else { return }
+                if state == .connected {
+                    if let cloudProfileID = self.iCloudProfileSync.multiplayerProfileID {
+                        self.appleAccount.adoptCloudMultiplayerProfile(cloudProfileID)
+                    } else if let localProfileID = self.appleAccount.linkedProfileID {
+                        self.iCloudProfileSync.publishMultiplayerProfile(localProfileID)
+                    }
                 }
+                self.refreshCloudContext()
             }
             .store(in: &cancellables)
+
+        self.iCloudProfileSync.$availability
+            .removeDuplicates()
+            .sink { [weak self] _ in
+                self?.refreshCloudContext()
+            }
+            .store(in: &cancellables)
+
+        self.cloudSync.onRestore = { [weak self] launcherSettingsData in
+            guard let self else { return }
+            if let launcherSettingsData {
+                self.settings.applyCloudSnapshotData(launcherSettingsData)
+            }
+            self.solEngineConfiguration.reload()
+            self.screenshotLibrary.reload()
+            self.playActivityLibrary.reload()
+            self.saveVault.reload()
+            self.refreshProfiles()
+            self.refreshPlaytimeMetadata()
+            self.scanGamesIfPossible(force: true)
+            self.statusMessage = "Restored Sol data from iCloud"
+        }
 
         validateSolEngine()
         validateGamesDirectory()
@@ -174,7 +267,10 @@ final class LauncherViewModel: ObservableObject {
     }
 
     var canLaunchAnyGame: Bool {
-        solEngineValidation.isValid && gamesValidation.isValid && !isLaunching
+        isLauncherInteractionEnabled &&
+            solEngineValidation.isValid &&
+            gamesValidation.isValid &&
+            !isLaunching
     }
 
     var selectedProfile: SolEngineProfile? {
@@ -186,11 +282,17 @@ final class LauncherViewModel: ObservableObject {
     }
 
     func rescan() {
+        guard isLauncherInteractionEnabled else { return }
         scanGamesIfPossible(force: true)
     }
 
+    func setLauncherInteractionEnabled(_ enabled: Bool) {
+        guard isLauncherInteractionEnabled != enabled else { return }
+        isLauncherInteractionEnabled = enabled
+    }
+
     func launchSelectedGame() {
-        guard canLaunch, let game = selectedGame else { return }
+        guard isLauncherInteractionEnabled, canLaunch, let game = selectedGame else { return }
         guard retainGamesDirectoryAccess(for: game.fileURL) else {
             appendSystem("Choose the games folder again in Settings to grant Sol access.")
             return
@@ -210,6 +312,7 @@ final class LauncherViewModel: ObservableObject {
     }
 
     func launchGame(withId id: String) {
+        guard isLauncherInteractionEnabled else { return }
         guard let game = games.first(where: { $0.id == id }) else {
             appendSystem("Game not found for id \(id)")
             return
@@ -223,11 +326,19 @@ final class LauncherViewModel: ObservableObject {
     }
 
     func launchGame(atPath path: String) {
+        guard isLauncherInteractionEnabled else { return }
+        let fileURL = URL(fileURLWithPath: path).standardizedFileURL
+        if let game = games.first(where: {
+            $0.fileURL.standardizedFileURL == fileURL
+        }) {
+            selectedGame = game
+            launchSelectedGame()
+            return
+        }
         guard solEngineValidation.isValid else {
             appendSystem("Sol Engine is not configured. Open Settings.")
             return
         }
-        let fileURL = URL(fileURLWithPath: path)
         guard FileManager.default.fileExists(atPath: fileURL.path) else {
             appendSystem("Game file not found at \(fileURL.lastPathComponent)")
             return
@@ -310,6 +421,40 @@ final class LauncherViewModel: ObservableObject {
         }
     }
 
+    func updateInlineKeyboard(text: String, cursorBegin: Int, cursorEnd: Int) {
+        guard var keyboard = inlineKeyboard else { return }
+        let limited = String(text.prefix(keyboard.maximumLength))
+        keyboard.text = limited
+        keyboard.cursorBegin = min(max(cursorBegin, 0), limited.utf16.count)
+        keyboard.cursorEnd = min(max(cursorEnd, 0), limited.utf16.count)
+        inlineKeyboard = keyboard
+        performSessionCommand("update inline keyboard") {
+            try embeddedRuntime.updateInlineKeyboard(
+                requestID: keyboard.requestID,
+                text: keyboard.text,
+                cursorBegin: keyboard.cursorBegin,
+                cursorEnd: keyboard.cursorEnd
+            )
+        }
+    }
+
+    func submitInlineKeyboard() {
+        guard let keyboard = inlineKeyboard else { return }
+        performSessionCommand("submit inline keyboard") {
+            try embeddedRuntime.submitInlineKeyboard(
+                requestID: keyboard.requestID,
+                text: keyboard.text
+            )
+        }
+    }
+
+    func cancelInlineKeyboard() {
+        guard let keyboard = inlineKeyboard else { return }
+        performSessionCommand("cancel inline keyboard") {
+            try embeddedRuntime.cancelInlineKeyboard(requestID: keyboard.requestID)
+        }
+    }
+
     func showAmiiboPicker() {
         guard canScanAmiibo else { return }
         amiiboStatusMessage = nil
@@ -338,6 +483,15 @@ final class LauncherViewModel: ObservableObject {
             finishEmbeddedSession(status: nil)
         }
         handlePendingLaunchIfNeeded()
+        if !isLaunching {
+            refreshCloudContext()
+            cloudSync.synchronize(reason: .appBecameActive)
+        }
+    }
+
+    func profileDataDidChange() {
+        cloudSync.updateLauncherSettingsData(settings.cloudSnapshotData())
+        cloudSync.synchronize(reason: .profileChanged)
     }
 
     func attachEmbeddedRenderSurface(_ surface: NSView) {
@@ -404,6 +558,7 @@ final class LauncherViewModel: ObservableObject {
             session.isFullscreen = fullscreen
         }
         embeddedRuntime.setHostFullscreenState(fullscreen)
+        embeddedRenderView?.fullscreenTransitionDidComplete()
     }
 
     func clearConsole() {
@@ -483,6 +638,17 @@ final class LauncherViewModel: ObservableObject {
         runBackendOperation(.resetInputBindings(player: player))
     }
 
+    func saveControllerTuning(
+        _ tuning: SolEngineControllerTuning,
+        for player: SolEnginePlayerIndex
+    ) {
+        runBackendOperation(.setInputTuning(tuning, player: player))
+    }
+
+    func testControllerRumble(for player: SolEnginePlayerIndex) {
+        runBackendOperation(.testInputRumble(player: player))
+    }
+
     func refreshProfiles() {
         runBackendOperation(.listProfiles)
     }
@@ -493,11 +659,169 @@ final class LauncherViewModel: ObservableObject {
         runBackendOperation(.setProfile(profile.id))
     }
 
+    func createGameProfile(name: String) {
+        runBackendOperation(.createProfile(name: name, imageBase64: nil))
+    }
+
+    func renameGameProfile(_ profile: SolEngineProfile, name: String) {
+        runBackendOperation(.renameProfile(id: profile.id, name: name))
+    }
+
+    func deleteGameProfile(_ profile: SolEngineProfile) {
+        guard !profile.isDefault else {
+            statusMessage = "Choose a different default game user first."
+            return
+        }
+        runBackendOperation(.deleteProfile(id: profile.id))
+    }
+
+    func updateGameProfileImage(_ profile: SolEngineProfile, from url: URL) {
+        let accessing = url.startAccessingSecurityScopedResource()
+        defer { if accessing { url.stopAccessingSecurityScopedResource() } }
+        do {
+            guard let image = NSImage(contentsOf: url) else {
+                throw GameProfileImageError.invalidImage
+            }
+            runBackendOperation(
+                .setProfileImage(
+                    id: profile.id,
+                    imageBase64: try encodedGameProfileImage(image)
+                )
+            )
+        } catch {
+            backendStatus.errorMessage = error.localizedDescription
+            statusMessage = "Could not use that profile picture."
+        }
+    }
+
+    /// Mirrors the canonical Sol identity into the active game user. Sol's
+    /// profile UI and cloud backup read from SolFriendsStore; this keeps the
+    /// name and image presented by the emulation core aligned with that same
+    /// identity instead of asking the user to edit it twice.
+    func synchronizeSolIdentityToSelectedProfile(
+        displayName: String,
+        image: NSImage?,
+        remoteImageURL: URL? = nil
+    ) {
+        guard image == nil, let remoteImageURL else {
+            synchronizeResolvedSolIdentityToSelectedProfile(
+                displayName: displayName,
+                image: image
+            )
+            return
+        }
+
+        // The username is canonical and should never wait on an avatar
+        // download. Mirror it immediately, then follow with the image if the
+        // remote Apple avatar resolves successfully.
+        synchronizeResolvedSolIdentityToSelectedProfile(
+            displayName: displayName,
+            image: nil
+        )
+
+        Task { [weak self] in
+            do {
+                let (data, response) = try await URLSession.shared.data(
+                    from: remoteImageURL
+                )
+                guard (response as? HTTPURLResponse)?.statusCode == 200 else {
+                    throw URLError(.badServerResponse)
+                }
+                guard let remoteImage = NSImage(data: data) else { return }
+                self?.synchronizeResolvedSolIdentityToSelectedProfile(
+                    displayName: displayName,
+                    image: remoteImage
+                )
+            } catch {
+                // The local Sol identity and game-user name are already saved.
+                // A transient avatar fetch must not roll either one back.
+            }
+        }
+    }
+
+    private func synchronizeResolvedSolIdentityToSelectedProfile(
+        displayName: String,
+        image: NSImage?
+    ) {
+        let name = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return }
+        let request = PendingSolIdentityMirror(displayName: name, image: image)
+
+        guard !isLaunching else {
+            pendingSolIdentityMirror = request
+            statusMessage = "Your Sol identity is saved and will be mirrored after the game closes."
+            return
+        }
+
+        guard let profile = selectedProfile else {
+            pendingSolIdentityMirror = request
+            statusMessage = "Your Sol profile is saved; load a game user to mirror it into Sol Engine."
+            if !isBackendOperationRunning,
+               !requestedProfilesForPendingIdentity {
+                requestedProfilesForPendingIdentity = true
+                refreshProfiles()
+            }
+            return
+        }
+        guard !isBackendOperationRunning else {
+            pendingSolIdentityMirror = request
+            statusMessage = "Your Sol identity is saved and will finish syncing after the current task."
+            return
+        }
+
+        do {
+            var operations: [SolEngineBackendOperation] = []
+            if profile.name != name {
+                operations.append(.renameProfile(id: profile.id, name: name))
+            }
+            if let image {
+                operations.append(
+                    .setProfileImage(
+                        id: profile.id,
+                        imageBase64: try encodedGameProfileImage(image)
+                    )
+                )
+            }
+            pendingSolIdentityMirror = nil
+            requestedProfilesForPendingIdentity = false
+            guard !operations.isEmpty else { return }
+            runBackendOperations(
+                operations,
+                completionMessage: "\(name) is now your identity across Sol"
+            )
+        } catch {
+            backendStatus.errorMessage = error.localizedDescription
+            statusMessage = "Your Sol profile was saved, but its game-user picture could not be mirrored."
+        }
+    }
+
     func linkAppleAccountToSelectedProfile() {
         guard let selectedProfile else { return }
         appleAccount.linkMultiplayerProfile(selectedProfile.id)
         iCloudProfileSync.publishMultiplayerProfile(selectedProfile.id)
         statusMessage = "\(selectedProfile.name) is now the multiplayer profile"
+    }
+
+    func useAppleIdentityForSelectedProfile() {
+        guard let name = appleAccount.displayName?.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        ), !name.isEmpty else {
+            statusMessage = "Connect an Apple Account before updating the game profile."
+            return
+        }
+        guard let selectedProfile else {
+            statusMessage = "Load a game profile before applying the Apple Account name."
+            refreshProfiles()
+            return
+        }
+
+        appleAccount.linkMultiplayerProfile(selectedProfile.id)
+        iCloudProfileSync.publishMultiplayerProfile(selectedProfile.id)
+        if selectedProfile.name != name {
+            runBackendOperation(.renameProfile(id: selectedProfile.id, name: name))
+        } else {
+            statusMessage = "\(name) is linked to the active Sol profile"
+        }
     }
 
     func disconnectAppleAccount() {
@@ -587,6 +911,11 @@ final class LauncherViewModel: ObservableObject {
             solEngineValidation = .valid(message: "Bundled native Sol Engine core found")
             solEnginePaths = resolved
             solEngineConfiguration.connect(to: resolved.dataDirectoryURL)
+            screenshotLibrary.connect(to: resolved.dataDirectoryURL)
+            playActivityLibrary.connect(to: resolved.dataDirectoryURL)
+            saveVault.connect(to: resolved.dataDirectoryURL)
+            modManager.connect(to: resolved.dataDirectoryURL)
+            refreshCloudContext()
             sharedStore.updateValidation(solEngineValid: true, gamesValid: gamesValidation.isValid)
             refreshBackendStatus()
             return
@@ -595,6 +924,11 @@ final class LauncherViewModel: ObservableObject {
         solEngineValidation = .invalid(message: "Bundled native Sol Engine core is missing")
         solEnginePaths = nil
         solEngineConfiguration.connect(to: nil)
+        screenshotLibrary.connect(to: nil)
+        playActivityLibrary.connect(to: nil)
+        saveVault.connect(to: nil)
+        modManager.connect(to: nil)
+        refreshCloudContext()
         sharedStore.updateValidation(solEngineValid: false, gamesValid: gamesValidation.isValid)
     }
 
@@ -696,10 +1030,13 @@ final class LauncherViewModel: ObservableObject {
         captureGroup: String?,
         didLaunch: (() -> Void)? = nil
     ) {
+        guard isLauncherInteractionEnabled else { return }
         guard !isLaunching else {
             appendSystem("Sol Engine is already running")
             return
         }
+
+        cloudSync.setGameplayActive(true)
 
         // A CAMetalLayer is a presentation-session object. Reusing one after
         // MoltenVK has destroyed its swapchain can leave already-presented
@@ -710,6 +1047,7 @@ final class LauncherViewModel: ObservableObject {
         isLaunchIsolationActive = true
         dlsmProviderStatus = DLSMProviderStatus(stage: "discovering")
         session = SolEngineSessionSnapshot(phase: .launching)
+        activeLaunchTitle = displayName
         launchActivity = SolEngineLaunchActivity()
         embeddedLaunchID = UUID()
         pendingEmbeddedLaunch = PendingEmbeddedLaunch(
@@ -747,6 +1085,7 @@ final class LauncherViewModel: ObservableObject {
         }
         if let title = event.title {
             session.title = title
+            activeLaunchTitle = title
         }
         if let titleID = event.titleID {
             session.titleID = titleID
@@ -770,9 +1109,11 @@ final class LauncherViewModel: ObservableObject {
         case "launch.first-frame":
             launchActivity.markFirstFramePresented()
             appendSystem(event.message ?? "First Metal frame presented")
+        case "solmetal.bootstrap-frame":
+            appendSystem(event.message ?? "SolMetal bootstrap returned no detail")
         case "amiibo.scanned":
             isAmiiboScanPending = false
-            amiiboStatusMessage = event.message ?? "Amiibo scanned"
+            amiiboStatusMessage = event.message ?? "NFC figure scanned"
             isAmiiboPickerPresented = false
         case "fullscreen.requested":
             if let fullscreen = event.fullscreen {
@@ -780,11 +1121,30 @@ final class LauncherViewModel: ObservableObject {
             }
         case "screenshot.saved":
             if let path = event.path {
+                screenshotLibrary.registerScreenshot(at: URL(fileURLWithPath: path))
+                cloudSync.synchronize(reason: .screenshotCaptured)
                 statusMessage = "Screenshot saved: \(URL(fileURLWithPath: path).lastPathComponent)"
                 appendSystem("Screenshot saved to \(path)")
             }
         case "dialog.request":
             presentNativeDialog(event)
+        case "inline-keyboard.shown", "inline-keyboard.updated":
+            if let requestID = event.requestID {
+                inlineKeyboard = SolEngineInlineKeyboard(
+                    requestID: requestID,
+                    text: event.defaultValue ?? "",
+                    cursorBegin: event.cursorBegin ?? (event.defaultValue ?? "").utf16.count,
+                    cursorEnd: event.cursorEnd ?? (event.defaultValue ?? "").utf16.count,
+                    maximumLength: max(event.maximumLength ?? 100, 1)
+                )
+            }
+        case "inline-keyboard.hidden":
+            if event.requestID == nil || event.requestID == inlineKeyboard?.requestID {
+                inlineKeyboard = nil
+                if let embeddedRenderView {
+                    embeddedRenderView.window?.makeFirstResponder(embeddedRenderView)
+                }
+            }
         case "dlsm.attachment-labels":
             appendSystem(event.message ?? "DLSM attachment labels were unavailable")
         case "dlsm.provider-readiness":
@@ -794,11 +1154,28 @@ final class LauncherViewModel: ObservableObject {
             }
         case "playtime.updated":
             refreshPlaytimeMetadata(preferredTitleID: event.titleID)
+        case "activity.updated":
+            if let id = event.activityID,
+               let timestamp = event.activityTimestamp,
+               let room = event.activityRoom,
+               let titleID = event.titleID {
+                playActivityLibrary.register(
+                    SolPlayActivityEntry(
+                        id: id,
+                        timestampUnixSeconds: timestamp,
+                        room: room,
+                        kind: event.activityKind ?? "Normal",
+                        version: event.activityVersion ?? 0,
+                        titleID: titleID
+                    )
+                )
+                cloudSync.synchronize(reason: .playActivityChanged)
+            }
         case "host.error":
             appendSystem(event.message ?? "Native Sol Engine error")
             if event.command == "scan-amiibo" {
                 isAmiiboScanPending = false
-                amiiboStatusMessage = event.message ?? "The Amiibo could not be scanned."
+                amiiboStatusMessage = event.message ?? "The NFC figure could not be scanned."
             }
         default:
             break
@@ -942,18 +1319,26 @@ final class LauncherViewModel: ObservableObject {
         isAmiiboPickerPresented = false
         isAmiiboScanPending = false
         amiiboStatusMessage = nil
-        embeddedRenderView.retireAfterSession()
+        inlineKeyboard = nil
+        embeddedRenderView?.retireAfterSession()
+        embeddedRenderView = nil
         embeddedLaunchID = nil
         isAttachingEmbeddedSurface = false
         isLaunching = false
         isLaunchIsolationActive = false
         session = SolEngineSessionSnapshot()
+        activeLaunchTitle = nil
         launchActivity = SolEngineLaunchActivity()
         releaseGamesDirectoryAccess()
         refreshPlaytimeMetadata()
+        cloudSync.updateLauncherSettingsData(settings.cloudSnapshotData())
+        cloudSync.setGameplayActive(false)
+        saveVault.createAutomaticSnapshot()
+        cloudSync.synchronize(reason: .gameplayEnded)
         if isGamingMode {
             onFullscreenRequest?(false)
         }
+        applyPendingSolIdentityMirrorIfNeeded()
     }
 
     private func retainGamesDirectoryAccess(for gameURL: URL) -> Bool {
@@ -1056,6 +1441,11 @@ final class LauncherViewModel: ObservableObject {
         let didLaunch: (() -> Void)?
     }
 
+    private struct PendingSolIdentityMirror {
+        let displayName: String
+        let image: NSImage?
+    }
+
     private func runBackendOperation(_ operation: SolEngineBackendOperation) {
         guard !isLaunching else {
             backendStatus.errorMessage = "Stop emulation before changing system files."
@@ -1115,7 +1505,68 @@ final class LauncherViewModel: ObservableObject {
 
             isBackendOperationRunning = false
             applyPendingCloudProfileIfNeeded()
+            applyPendingSolIdentityMirrorIfNeeded()
         }
+    }
+
+    private func runBackendOperations(
+        _ operations: [SolEngineBackendOperation],
+        completionMessage: String
+    ) {
+        guard !operations.isEmpty else { return }
+        guard !isLaunching else {
+            backendStatus.errorMessage = "Stop emulation before changing the active profile."
+            return
+        }
+        guard !isBackendOperationRunning else {
+            statusMessage = "Sol will keep the local profile; try mirroring the game user again after the current task finishes."
+            return
+        }
+        guard let executableURL = solEnginePaths?.executableURL,
+              let dataDirectoryURL = solEnginePaths?.dataDirectoryURL else {
+            backendStatus.errorMessage = "This Sol build is missing its bundled engine."
+            return
+        }
+
+        isBackendOperationRunning = true
+        backendStatus.errorMessage = nil
+
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                for operation in operations {
+                    let events = try await backendService.run(
+                        executableURL: executableURL,
+                        dataDirectoryURL: dataDirectoryURL,
+                        operation: operation
+                    )
+                    applyBackendEvents(events)
+                }
+                statusMessage = completionMessage
+            } catch {
+                backendStatus.errorMessage = error.localizedDescription
+                statusMessage = "Your Sol profile is saved, but Sol Engine could not mirror every identity field."
+                appendSystem("Sol Engine profile sync: \(error.localizedDescription)")
+            }
+            isBackendOperationRunning = false
+            applyPendingCloudProfileIfNeeded()
+            applyPendingSolIdentityMirrorIfNeeded()
+        }
+    }
+
+    private func encodedGameProfileImage(_ image: NSImage) throws -> String {
+        guard let tiff = image.resizedSquare(maximumPixels: 256).tiffRepresentation,
+              let representation = NSBitmapImageRep(data: tiff),
+              let jpeg = representation.representation(
+                using: .jpeg,
+                properties: [.compressionFactor: 0.86]
+              ) else {
+            throw GameProfileImageError.invalidImage
+        }
+        guard jpeg.count <= 512 * 1_024 else {
+            throw GameProfileImageError.imageTooLarge
+        }
+        return jpeg.base64EncodedString()
     }
 
     private func applyBackendEvents(_ events: [SolEngineNativeEvent]) {
@@ -1145,12 +1596,31 @@ final class LauncherViewModel: ObservableObject {
                 inputID: inputID,
                 inputName: inputName,
                 player: player,
-                bindings: bindings
+                bindings: bindings,
+                tuning: SolEngineControllerTuning(
+                    deadzoneLeft: event.deadzoneLeft ?? 0.1,
+                    deadzoneRight: event.deadzoneRight ?? 0.1,
+                    rangeLeft: event.rangeLeft ?? 1,
+                    rangeRight: event.rangeRight ?? 1,
+                    triggerThreshold: event.triggerThreshold ?? 0.5,
+                    motionEnabled: event.motionEnabled ?? true,
+                    motionSensitivity: event.motionSensitivity ?? 100,
+                    gyroDeadzone: event.gyroDeadzone ?? 1,
+                    rumbleEnabled: event.rumbleEnabled ?? false,
+                    strongRumble: event.strongRumble ?? 1,
+                    weakRumble: event.weakRumble ?? 1,
+                    hdRumble: event.hdRumble ?? false,
+                    ledEnabled: event.ledEnabled ?? false,
+                    ledOff: event.ledOff ?? false,
+                    ledRainbow: event.ledRainbow ?? false,
+                    ledColor: event.ledColor ?? 0x007AFF
+                )
             )
         }
 
         let profileEvents = events.filter { $0.event == "profile.item" }
         if !profileEvents.isEmpty {
+            requestedProfilesForPendingIdentity = false
             backendProfiles = profileEvents.compactMap { event -> SolEngineProfile? in
                 guard let id = event.profileID,
                       let name = event.profileName else {
@@ -1165,6 +1635,17 @@ final class LauncherViewModel: ObservableObject {
                     },
                     isDefault: event.isDefault ?? false
                 )
+            }
+            if events.contains(where: {
+                [
+                    "create-profile",
+                    "rename-profile",
+                    "delete-profile",
+                    "set-profile-image",
+                    "set-profile",
+                ].contains($0.operation) && $0.success == true
+            }) {
+                cloudSync.synchronize(reason: .profileChanged)
             }
         }
 
@@ -1290,6 +1771,33 @@ final class LauncherViewModel: ObservableObject {
         runBackendOperation(.setProfile(profileID))
     }
 
+    private func applyPendingSolIdentityMirrorIfNeeded() {
+        guard !isBackendOperationRunning,
+              !isLaunching,
+              let request = pendingSolIdentityMirror else {
+            return
+        }
+
+        // The resolver below either consumes this request, or puts it back if
+        // the game-user list is still unavailable.
+        pendingSolIdentityMirror = nil
+        synchronizeResolvedSolIdentityToSelectedProfile(
+            displayName: request.displayName,
+            image: request.image
+        )
+    }
+
+    private func refreshCloudContext() {
+        cloudSync.configure(
+            accountIdentifier: appleAccount.isConnected
+                ? appleAccount.cloudAccountIdentifier
+                : nil,
+            engineRootURL: solEnginePaths?.dataDirectoryURL,
+            launcherSettingsData: settings.cloudSnapshotData()
+        )
+        cloudSync.setGameplayActive(isLaunching)
+    }
+
     private func revealTitleDirectory(for game: Game, components: [String]) {
         guard let titleID = game.titleId?.lowercased(),
               titleID.range(of: #"^[0-9a-f]{16}$"#, options: .regularExpression) != nil else {
@@ -1318,7 +1826,9 @@ final class LauncherViewModel: ObservableObject {
     }
 
     func handlePendingLaunchIfNeeded() {
-        guard !games.isEmpty, !isPendingLaunchCheckInFlight else { return }
+        guard isLauncherInteractionEnabled,
+              !games.isEmpty,
+              !isPendingLaunchCheckInFlight else { return }
         isPendingLaunchCheckInFlight = true
         sharedStore.consumePendingLaunch { [weak self] pendingId, pendingPath in
             Task { @MainActor [weak self] in
@@ -1360,6 +1870,7 @@ final class LauncherViewModel: ObservableObject {
         let query = components.queryItems ?? []
 
         if host == "open" {
+            guard isLauncherInteractionEnabled else { return }
             isSettingsPresented = query.first(where: { $0.name == "settings" })?.value == "1"
             return
         }
@@ -1392,5 +1903,39 @@ struct ValidationResult {
 private extension String {
     var nilIfBlank: String? {
         trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : self
+    }
+}
+
+private extension NSImage {
+    func resizedSquare(maximumPixels: CGFloat) -> NSImage {
+        let edge = max(min(size.width, size.height), 1)
+        let source = NSRect(
+            x: (size.width - edge) / 2,
+            y: (size.height - edge) / 2,
+            width: edge,
+            height: edge
+        )
+        let output = NSImage(size: NSSize(width: maximumPixels, height: maximumPixels))
+        output.lockFocus()
+        draw(
+            in: NSRect(x: 0, y: 0, width: maximumPixels, height: maximumPixels),
+            from: source,
+            operation: .copy,
+            fraction: 1
+        )
+        output.unlockFocus()
+        return output
+    }
+}
+
+private enum GameProfileImageError: LocalizedError {
+    case invalidImage
+    case imageTooLarge
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidImage: "That file is not a supported image."
+        case .imageTooLarge: "The normalized profile picture is too large."
+        }
     }
 }

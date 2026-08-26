@@ -8,6 +8,8 @@ struct AppleAccountRecord: Codable, Equatable {
     let userID: String
     var displayName: String
     var linkedProfileID: String?
+    var email: String?
+    var isPrivateRelay: Bool?
 }
 
 protocol AppleAccountCredentialStoring {
@@ -21,40 +23,73 @@ struct KeychainAppleAccountCredentialStore: AppleAccountCredentialStoring {
     private let account = "primary"
 
     func load() throws -> AppleAccountRecord? {
-        var item: CFTypeRef?
-        let status = SecItemCopyMatching(
-            [
-                kSecClass: kSecClassGenericPassword,
-                kSecAttrService: service,
-                kSecAttrAccount: account,
-                kSecReturnData: true,
-                kSecMatchLimit: kSecMatchLimitOne,
-            ] as CFDictionary,
-            &item
-        )
+        let protectedResult = copyItem(useDataProtectionKeychain: true)
+        switch protectedResult.status {
+        case errSecSuccess:
+            guard let data = protectedResult.data else {
+                throw KeychainError(status: errSecDecode)
+            }
+            return try JSONDecoder().decode(AppleAccountRecord.self, from: data)
+        case errSecItemNotFound:
+            break
+        default:
+            throw KeychainError(status: protectedResult.status)
+        }
 
-        if status == errSecItemNotFound {
+        // Versions of Sol built before the account setup flow wrote to the
+        // legacy file-backed keychain. Its ACL can become detached from a
+        // rebuilt development app and macOS then surfaces the misleading
+        // "user name or passphrase" error. Migrate readable records once;
+        // otherwise let Sign in with Apple create a fresh protected record.
+        let legacyResult = copyItem(useDataProtectionKeychain: false)
+        switch legacyResult.status {
+        case errSecSuccess:
+            guard let data = legacyResult.data else {
+                throw KeychainError(status: errSecDecode)
+            }
+            let record = try JSONDecoder().decode(AppleAccountRecord.self, from: data)
+            try save(record)
+            _ = deleteItem(useDataProtectionKeychain: false)
+            return record
+        case errSecItemNotFound, errSecAuthFailed, errSecInteractionNotAllowed:
             return nil
+        default:
+            throw KeychainError(status: legacyResult.status)
         }
-        guard status == errSecSuccess, let data = item as? Data else {
-            throw KeychainError(status: status)
+    }
+
+    private func copyItem(
+        useDataProtectionKeychain: Bool
+    ) -> (status: OSStatus, data: Data?) {
+        var item: CFTypeRef?
+        var query: [CFString: Any] = [
+            kSecClass: kSecClassGenericPassword,
+            kSecAttrService: service,
+            kSecAttrAccount: account,
+            kSecReturnData: true,
+            kSecMatchLimit: kSecMatchLimitOne,
+        ]
+        if useDataProtectionKeychain {
+            query[kSecUseDataProtectionKeychain] = true
         }
-        return try JSONDecoder().decode(AppleAccountRecord.self, from: data)
+        let status = SecItemCopyMatching(query as CFDictionary, &item)
+        return (status, item as? Data)
     }
 
     func save(_ record: AppleAccountRecord) throws {
         let data = try JSONEncoder().encode(record)
-        let query = [
+        let query: [CFString: Any] = [
             kSecClass: kSecClassGenericPassword,
             kSecAttrService: service,
             kSecAttrAccount: account,
-        ] as CFDictionary
-        let attributes = [
+            kSecUseDataProtectionKeychain: true,
+        ]
+        let attributes: [CFString: Any] = [
             kSecValueData: data,
             kSecAttrAccessible: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
-        ] as CFDictionary
+        ]
 
-        let updateStatus = SecItemUpdate(query, attributes)
+        let updateStatus = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
         if updateStatus == errSecSuccess {
             return
         }
@@ -69,6 +104,7 @@ struct KeychainAppleAccountCredentialStore: AppleAccountCredentialStoring {
                 kSecAttrAccount: account,
                 kSecValueData: data,
                 kSecAttrAccessible: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+                kSecUseDataProtectionKeychain: true,
             ] as CFDictionary,
             nil
         )
@@ -78,23 +114,39 @@ struct KeychainAppleAccountCredentialStore: AppleAccountCredentialStoring {
     }
 
     func remove() throws {
-        let status = SecItemDelete(
-            [
-                kSecClass: kSecClassGenericPassword,
-                kSecAttrService: service,
-                kSecAttrAccount: account,
-            ] as CFDictionary
-        )
+        let status = deleteItem(useDataProtectionKeychain: true)
         guard status == errSecSuccess || status == errSecItemNotFound else {
             throw KeychainError(status: status)
         }
+        let legacyStatus = deleteItem(useDataProtectionKeychain: false)
+        guard legacyStatus == errSecSuccess ||
+                legacyStatus == errSecItemNotFound ||
+                legacyStatus == errSecAuthFailed ||
+                legacyStatus == errSecInteractionNotAllowed else {
+            throw KeychainError(status: legacyStatus)
+        }
+    }
+
+    private func deleteItem(useDataProtectionKeychain: Bool) -> OSStatus {
+        var query: [CFString: Any] = [
+            kSecClass: kSecClassGenericPassword,
+            kSecAttrService: service,
+            kSecAttrAccount: account,
+        ]
+        if useDataProtectionKeychain {
+            query[kSecUseDataProtectionKeychain] = true
+        }
+        return SecItemDelete(query as CFDictionary)
     }
 
     private struct KeychainError: LocalizedError {
         let status: OSStatus
 
         var errorDescription: String? {
-            SecCopyErrorMessageString(status, nil) as String?
+            if status == errSecAuthFailed || status == errSecInteractionNotAllowed {
+                return "Sol could not unlock its saved Apple account. Sign in with Apple again to reconnect it."
+            }
+            return SecCopyErrorMessageString(status, nil) as String?
                 ?? "The Apple account could not be saved in Keychain."
         }
     }
@@ -147,6 +199,8 @@ final class AppleAccountService: ObservableObject {
 
     @Published private(set) var state: State = .checking
     @Published private(set) var displayName: String?
+    @Published private(set) var email: String?
+    @Published private(set) var isPrivateRelay = false
     @Published private(set) var linkedProfileID: String?
 
     private let credentialStore: any AppleAccountCredentialStoring
@@ -169,6 +223,8 @@ final class AppleAccountService: ObservableObject {
         do {
             record = try credentialStore.load()
             displayName = record?.displayName
+            email = record?.email
+            isPrivateRelay = record?.isPrivateRelay ?? false
             linkedProfileID = record?.linkedProfileID
             if record == nil {
                 state = .signedOut
@@ -189,13 +245,21 @@ final class AppleAccountService: ObservableObject {
         return Self.avatarURL(userID: record.userID, displayName: record.displayName)
     }
 
+    /// A stable, non-reversible namespace used inside Sol's private iCloud
+    /// container. The raw Sign in with Apple subject never becomes a filename
+    /// or leaves Keychain.
+    var cloudAccountIdentifier: String? {
+        guard let record else { return nil }
+        return Self.cloudAccountIdentifier(userID: record.userID)
+    }
+
     var errorMessage: String? {
         guard case let .failed(message) = state else { return nil }
         return message
     }
 
     func prepareAuthorizationRequest(_ request: ASAuthorizationAppleIDRequest) {
-        request.requestedScopes = [.fullName]
+        request.requestedScopes = [.fullName, .email]
     }
 
     func completeAuthorization(
@@ -216,20 +280,30 @@ final class AppleAccountService: ObservableObject {
             let existingName = record?.userID == credential.user
                 ? record?.displayName
                 : nil
+            let existingEmail = record?.userID == credential.user
+                ? record?.email
+                : nil
             let name = suppliedName
                 ?? existingName
                 ?? Self.nonEmpty(profileName)
                 ?? "Apple Account"
+            let email = Self.nonEmpty(credential.email) ?? existingEmail
             let updatedRecord = AppleAccountRecord(
                 userID: credential.user,
                 displayName: name,
-                linkedProfileID: profileID
+                linkedProfileID: profileID,
+                email: email,
+                isPrivateRelay: email?.localizedCaseInsensitiveContains(
+                    "@privaterelay.appleid.com"
+                ) ?? false
             )
 
             do {
                 try credentialStore.save(updatedRecord)
                 record = updatedRecord
                 displayName = updatedRecord.displayName
+                self.email = updatedRecord.email
+                isPrivateRelay = updatedRecord.isPrivateRelay ?? false
                 linkedProfileID = updatedRecord.linkedProfileID
                 state = .connected
             } catch {
@@ -310,6 +384,8 @@ final class AppleAccountService: ObservableObject {
             try credentialStore.remove()
             record = nil
             displayName = nil
+            email = nil
+            isPrivateRelay = false
             linkedProfileID = nil
             state = nextState
         } catch {
@@ -349,6 +425,16 @@ final class AppleAccountService: ObservableObject {
             URLQueryItem(name: "size", value: "120"),
         ]
         return components.url
+    }
+
+    nonisolated static func cloudAccountIdentifier(userID: String) -> String {
+        let digest = SHA256.hash(
+            data: Data("com.solemu.app.cloud.\(userID)".utf8)
+        )
+        let suffix = digest.prefix(20)
+            .map { String(format: "%02x", $0) }
+            .joined()
+        return "apple-\(suffix)"
     }
 
     private static var hasSignInWithAppleEntitlement: Bool {

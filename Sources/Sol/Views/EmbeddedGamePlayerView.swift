@@ -9,7 +9,10 @@ struct EmbeddedGamePlayerView: NSViewRepresentable {
     @ObservedObject var viewModel: LauncherViewModel
 
     func makeNSView(context: Context) -> SolEngineRenderView {
-        let view = viewModel.embeddedRenderView
+        guard let view = viewModel.embeddedRenderView else {
+            assertionFailure("Embedded render view requested without an active session")
+            return SolEngineRenderView()
+        }
         view.configureDLSM(viewModel.settings.dlsmConfiguration)
         view.prepareForAttachment()
         view.onReady = { [weak viewModel] renderView in
@@ -32,9 +35,13 @@ struct EmbeddedGamePlayerView: NSViewRepresentable {
         nsView.notifyReadyIfPossible()
         viewModel.embeddedRenderSurfaceDidResize(nsView)
     }
+
+    static func dismantleNSView(_ nsView: SolEngineRenderView, coordinator: ()) {
+        nsView.retireAfterSession()
+    }
 }
 
-final class SolEngineRenderView: NSView {
+final class SolEngineRenderView: NSView, CALayerDelegate {
     var onReady: ((SolEngineRenderView) -> Void)?
     var onLayout: ((SolEngineRenderView) -> Void)?
     var onKeyEvent: ((Int32, Bool) -> Void)?
@@ -53,6 +60,9 @@ final class SolEngineRenderView: NSView {
     private var didNotifyReady = false
     nonisolated(unsafe) private var windowResignObserver: NSObjectProtocol?
     nonisolated(unsafe) private var keyReleaseMonitor: Any?
+#if DEBUG
+    private var lastGeometryDescription = ""
+#endif
 
     override init(frame frameRect: NSRect) {
         let device = MTLCreateSystemDefaultDevice()
@@ -83,6 +93,8 @@ final class SolEngineRenderView: NSView {
         self.outputMetalLayer = outputMetalLayer
         self.dlsmPipeline = SolDLSMPipeline(outputLayer: outputMetalLayer)
         super.init(frame: frameRect)
+        sourceMetalLayer.delegate = self
+        outputMetalLayer.delegate = self
         wantsLayer = true
         layer?.backgroundColor = NSColor.black.cgColor
         layer?.masksToBounds = true
@@ -294,14 +306,48 @@ final class SolEngineRenderView: NSView {
         didNotifyReady = false
     }
 
+    func fullscreenTransitionDidComplete() {
+        // AppKit owns the fullscreen window frame. Refresh the borrowed Metal
+        // layers only after its transition notification so SwiftUI's previous
+        // safe-area proposal cannot leave a one-sided uncovered strip.
+        needsLayout = true
+        layoutSubtreeIfNeeded()
+        updateMetalLayerGeometry()
+        onLayout?(self)
+        window?.makeFirstResponder(self)
+    }
+
     func retireAfterSession() {
         resetInputState()
+        if let windowResignObserver {
+            NotificationCenter.default.removeObserver(windowResignObserver)
+            self.windowResignObserver = nil
+        }
+        if let keyReleaseMonitor {
+            NSEvent.removeMonitor(keyReleaseMonitor)
+            self.keyReleaseMonitor = nil
+        }
         onReady = nil
         onLayout = nil
         onKeyEvent = nil
         onInputReset = nil
         dlsmPipeline.setPresentationAvailabilityHandler(nil)
         setDLSMOutputAvailable(false)
+
+        // Each launch intentionally owns a fresh swapchain layer. Once the
+        // engine has terminated, detach the retired layers and their devices
+        // so SwiftUI/AppKit view caching cannot keep old drawable pools alive.
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        sourceMetalLayer.delegate = nil
+        outputMetalLayer.delegate = nil
+        sourceMetalLayer.drawableSize = CGSize(width: 1, height: 1)
+        outputMetalLayer.drawableSize = CGSize(width: 1, height: 1)
+        sourceMetalLayer.removeFromSuperlayer()
+        outputMetalLayer.removeFromSuperlayer()
+        sourceMetalLayer.device = nil
+        outputMetalLayer.device = nil
+        CATransaction.commit()
     }
 
     private func forwardKey(_ event: NSEvent, pressed: Bool) {
@@ -350,8 +396,32 @@ final class SolEngineRenderView: NSView {
     ]
 
     private func updateMetalLayerGeometry() {
+        let isHostFullscreen = window?.styleMask.contains(.fullScreen) == true
+        let presentationRect: CGRect
+        if isHostFullscreen,
+           let contentView = window?.contentView {
+            // SwiftUI keeps NSViewRepresentable inside the display-cutout
+            // safe rectangle in fullscreen. Present against the complete
+            // window content rectangle so the guest image reaches every
+            // display edge; conversion also handles a non-zero safe-area
+            // origin on other MacBook display shapes.
+            presentationRect = convert(contentView.bounds, from: contentView)
+        } else {
+            presentationRect = CGRect(origin: .zero, size: bounds.size)
+        }
+
+#if DEBUG
+        let contentBounds = window?.contentView?.bounds ?? .zero
+        let contentInsets = window?.contentView?.safeAreaInsets ?? .init()
+        let geometryDescription = "fullscreen=\(isHostFullscreen) view=\(NSStringFromRect(bounds)) content=\(NSStringFromRect(contentBounds)) converted=\(NSStringFromRect(presentationRect)) safe=\(contentInsets.top),\(contentInsets.left),\(contentInsets.bottom),\(contentInsets.right)"
+        if geometryDescription != lastGeometryDescription {
+            lastGeometryDescription = geometryDescription
+            logger.info("Render surface geometry: \(geometryDescription, privacy: .public)")
+        }
+#endif
+
         guard let logicalSize = SolEngineSurfaceSizing.logicalSize(
-            bounds: bounds.size,
+            bounds: presentationRect.size,
             window: window?.contentView?.bounds.size,
             screen: window?.screen?.frame.size
         ) else {
@@ -378,15 +448,16 @@ final class SolEngineRenderView: NSView {
         CATransaction.setDisableActions(true)
         defer { CATransaction.commit() }
 
+        layer?.masksToBounds = !isHostFullscreen
         sourceMetalLayer.bounds = CGRect(origin: .zero, size: sourceLogicalSize)
-        sourceMetalLayer.position = .zero
+        sourceMetalLayer.position = presentationRect.origin
         sourceMetalLayer.setAffineTransform(
             CGAffineTransform(scaleX: 1 / renderScale, y: 1 / renderScale)
         )
         sourceMetalLayer.contentsScale = contentsScale
         sourceMetalLayer.drawableSize = requestedRenderPixelSize
 
-        let layerFrame = CGRect(origin: .zero, size: logicalSize)
+        let layerFrame = CGRect(origin: presentationRect.origin, size: logicalSize)
         outputMetalLayer.frame = layerFrame
         outputMetalLayer.contentsScale = contentsScale
         outputMetalLayer.drawableSize = CGSize(

@@ -14,6 +14,29 @@ settings:
     MARKETING_VERSION: "0.2.1"
     CURRENT_PROJECT_VERSION: "4"
 
+packages:
+  DockProgress:
+    url: https://github.com/sindresorhus/DockProgress.git
+    from: 5.1.0
+  ArgumentParser:
+    url: https://github.com/apple/swift-argument-parser.git
+    from: 1.8.2
+  SemanticVersion:
+    url: https://github.com/SwiftPackageIndex/SemanticVersion.git
+    from: 0.5.3
+  WhatsNewKit:
+    url: https://github.com/SvenTiigi/WhatsNewKit.git
+    from: 2.2.1
+  Shimmer:
+    url: https://github.com/markiv/SwiftUI-Shimmer.git
+    from: 1.5.1
+  Glur:
+    url: https://github.com/joogps/Glur.git
+    from: 1.1.0
+  ColorfulX:
+    url: https://github.com/Lakr233/ColorfulX.git
+    from: 6.1.0
+
 schemes:
   Sol:
     shared: true
@@ -74,6 +97,13 @@ targets:
         embed: true
       - target: SolShare
         embed: true
+      - package: DockProgress
+      - package: ArgumentParser
+      - package: SemanticVersion
+      - package: WhatsNewKit
+      - package: Shimmer
+      - package: Glur
+      - package: ColorfulX
     info:
       path: Sol-Info.plist
       properties:
@@ -87,6 +117,11 @@ targets:
         LSApplicationCategoryType: "public.app-category.games"
         GCSupportsGameMode: true
         LSSupportsGameMode: true
+        NSUbiquitousContainers:
+          iCloud.com.solemu.app:
+            NSUbiquitousContainerIsDocumentScopePublic: false
+            NSUbiquitousContainerName: Sol
+            NSUbiquitousContainerSupportedFolderLevels: Any
         CFBundleURLTypes:
           - CFBundleURLName: com.solemu.app
             CFBundleURLSchemes:

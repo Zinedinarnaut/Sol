@@ -4,6 +4,7 @@ import SwiftUI
 struct SolEngineMultiplayerSettingsPane: View {
     @ObservedObject var viewModel: LauncherViewModel
     @ObservedObject var configuration: SolEngineConfigurationStore
+    @ObservedObject var friendsStore: SolFriendsStore
 
     @Environment(\.colorScheme) private var colorScheme
     @State private var networkInterfaces: [SolNetworkInterface] = [.automatic]
@@ -57,6 +58,7 @@ struct SolEngineMultiplayerSettingsPane: View {
                         ProfileAvatarView(
                             profile: viewModel.selectedProfile,
                             generatedAvatarURL: viewModel.appleAccount.avatarURL,
+                            socialIdentity: friendsStore.identity,
                             size: 28
                         )
 

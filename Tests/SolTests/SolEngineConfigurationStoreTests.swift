@@ -58,6 +58,16 @@ final class SolEngineConfigurationStoreTests: XCTestCase {
         store.multiplayerLDNPassphrase = "Sol-123456789abc-extra"
         store.multiplayerLDNServer = "  rooms.example.test  "
         store.enableInternetAccess = true
+        store.enableFileLog = false
+        store.loggingEnableDebug = true
+        store.loggingEnableTrace = true
+        store.loggingEnableFSAccessLog = true
+        store.fsGlobalAccessLogMode = 8
+        store.ignoreMissingServices = true
+        store.enableGDBStub = true
+        store.gdbStubPort = 80
+        store.debuggerSuspendOnStart = true
+        store.graphicsShadersDumpPath = root.appendingPathComponent("Shader Dumps").path
         store.autoloadDirectories = [
             root.appendingPathComponent("Updates", isDirectory: true).path,
             root.appendingPathComponent("DLC", isDirectory: true).path,
@@ -81,6 +91,19 @@ final class SolEngineConfigurationStoreTests: XCTestCase {
         XCTAssertEqual(saved["multiplayer_ldn_passphrase"] as? String, "Sol-123456789abc")
         XCTAssertEqual(saved["ldn_server"] as? String, "rooms.example.test")
         XCTAssertEqual(saved["enable_internet_access"] as? Bool, true)
+        XCTAssertEqual(saved["enable_file_log"] as? Bool, false)
+        XCTAssertEqual(saved["logging_enable_debug"] as? Bool, true)
+        XCTAssertEqual(saved["logging_enable_trace"] as? Bool, true)
+        XCTAssertEqual(saved["logging_enable_fs_access_log"] as? Bool, true)
+        XCTAssertEqual((saved["fs_global_access_log_mode"] as? NSNumber)?.intValue, 3)
+        XCTAssertEqual(saved["ignore_missing_services"] as? Bool, true)
+        XCTAssertEqual(saved["enable_gdb_stub"] as? Bool, true)
+        XCTAssertEqual((saved["gdb_stub_port"] as? NSNumber)?.intValue, 1_024)
+        XCTAssertEqual(saved["debugger_suspend_on_start"] as? Bool, true)
+        XCTAssertEqual(
+            saved["graphics_shaders_dump_path"] as? String,
+            root.appendingPathComponent("Shader Dumps").path
+        )
         XCTAssertEqual(
             saved["autoload_dirs"] as? [String],
             [

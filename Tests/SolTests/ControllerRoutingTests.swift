@@ -89,7 +89,7 @@ final class ControllerRoutingTests: XCTestCase {
 
     func testControllerMappingEventDecodesBindings() throws {
         let data = try XCTUnwrap(
-            #"{"protocol":1,"event":"input.mapping","inputId":"dualsense","inputName":"DualSense Wireless Controller","playerIndex":"Player1","bindings":{"buttonA":"B","buttonB":"A","buttonPlus":"Plus"}}"#
+            #"{"protocol":1,"event":"input.mapping","inputId":"dualsense","inputName":"DualSense Wireless Controller","playerIndex":"Player1","bindings":{"buttonA":"B","buttonB":"A","buttonPlus":"Plus"},"deadzoneLeft":0.12,"motionEnabled":true,"motionSensitivity":125,"rumbleEnabled":true,"strongRumble":0.9,"hdRumble":true,"ledColor":1193046}"#
                 .data(using: .utf8)
         )
 
@@ -101,6 +101,13 @@ final class ControllerRoutingTests: XCTestCase {
         XCTAssertEqual(event.bindings?["buttonA"], "B")
         XCTAssertEqual(event.bindings?["buttonB"], "A")
         XCTAssertEqual(event.bindings?["buttonPlus"], "Plus")
+        XCTAssertEqual(event.deadzoneLeft, 0.12)
+        XCTAssertEqual(event.motionEnabled, true)
+        XCTAssertEqual(event.motionSensitivity, 125)
+        XCTAssertEqual(event.rumbleEnabled, true)
+        XCTAssertEqual(event.strongRumble, 0.9)
+        XCTAssertEqual(event.hdRumble, true)
+        XCTAssertEqual(event.ledColor, 0x123456)
     }
 
     func testDualSenseButtonCaptureUsesPhysicalSDLButtons() {

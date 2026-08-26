@@ -228,6 +228,100 @@ final class SolEngineProcessServiceTests: XCTestCase, @unchecked Sendable {
         )
     }
 
+    func testSolMetalProbeDecodesAsValidatedButNotPlayable() throws {
+        let data = Data(
+            #"""
+            {
+              "protocol": 1,
+              "event": "solmetal.status",
+              "operation": "solmetal-status",
+              "success": true,
+              "playable": false,
+              "abiVersion": 1,
+              "deviceName": "Apple M4",
+              "appleGpuFamily": 9,
+              "argumentBufferTier": 2,
+              "unifiedMemory": true,
+              "supportsBcTextureCompression": true,
+              "supportsRayTracing": true,
+              "supportsBinaryArchives": true,
+              "spirvTranslationReady": true,
+              "bufferResourcesReady": true,
+              "textureResourcesReady": true,
+              "samplerResourcesReady": true,
+              "computePipelinesReady": true,
+              "renderPipelinesReady": true,
+              "renderBindingsReady": true,
+              "indexedDrawingReady": true,
+              "depthStencilReady": true,
+              "blendingReady": true,
+              "rasterizerStateReady": true,
+              "timelineSynchronizationReady": true,
+              "recommendedWorkingSetBytes": 12713115648,
+              "testsRun": 15,
+              "testsPassed": 15,
+              "bytesVerified": 53248,
+              "shaderCacheHits": 2,
+              "shaderCacheMisses": 3,
+              "binaryArchivesCreated": 1,
+              "gpuMilliseconds": 0.08,
+              "outputSignature": "00f09d0ec6ce960f"
+            }
+            """#.utf8
+        )
+
+        let event = try JSONDecoder().decode(SolEngineNativeEvent.self, from: data)
+
+        XCTAssertEqual(SolEngineBackendOperation.solMetalStatus.arguments, ["--native-solmetal-status"])
+        XCTAssertEqual(event.event, "solmetal.status")
+        XCTAssertEqual(event.success, true)
+        XCTAssertEqual(event.playable, false)
+        XCTAssertEqual(event.abiVersion, 1)
+        XCTAssertEqual(event.deviceName, "Apple M4")
+        XCTAssertEqual(event.testsPassed, 15)
+        XCTAssertEqual(event.spirvTranslationReady, true)
+        XCTAssertEqual(event.bufferResourcesReady, true)
+        XCTAssertEqual(event.textureResourcesReady, true)
+        XCTAssertEqual(event.samplerResourcesReady, true)
+        XCTAssertEqual(event.computePipelinesReady, true)
+        XCTAssertEqual(event.renderPipelinesReady, true)
+        XCTAssertEqual(event.renderBindingsReady, true)
+        XCTAssertEqual(event.indexedDrawingReady, true)
+        XCTAssertEqual(event.depthStencilReady, true)
+        XCTAssertEqual(event.blendingReady, true)
+        XCTAssertEqual(event.rasterizerStateReady, true)
+        XCTAssertEqual(event.timelineSynchronizationReady, true)
+        XCTAssertEqual(event.shaderCacheHits, 2)
+        XCTAssertEqual(event.shaderCacheMisses, 3)
+        XCTAssertEqual(event.binaryArchivesCreated, 1)
+        XCTAssertEqual(event.outputSignature, "00f09d0ec6ce960f")
+    }
+
+    func testPostGameMemoryEventDecodesHypervisorLifecycleCounters() throws {
+        let data = Data(
+            #"""
+            {
+              "protocol": 1,
+              "event": "embedded.memory-reclaimed",
+              "managedLiveBytes": 310378496,
+              "managedHeapBytes": 292237312,
+              "managedCommittedBytes": 308071628,
+              "managedFragmentedBytes": 104857,
+              "processWorkingSetBytes": 1227157504,
+              "hvAddressSpaces": 0,
+              "hvVcpus": 0
+            }
+            """#.utf8
+        )
+
+        let event = try JSONDecoder().decode(SolEngineNativeEvent.self, from: data)
+
+        XCTAssertEqual(event.event, "embedded.memory-reclaimed")
+        XCTAssertEqual(event.hvAddressSpaces, 0)
+        XCTAssertEqual(event.hvVcpus, 0)
+        XCTAssertEqual(event.processWorkingSetBytes, 1_227_157_504)
+    }
+
     func testPlaytimeUpdateDecodesForImmediateLibraryRefresh() throws {
         let data = Data(
             #"""
@@ -443,6 +537,47 @@ final class SolEngineProcessServiceTests: XCTestCase, @unchecked Sendable {
         XCTAssertEqual(event.profileName, "Player")
         XCTAssertEqual(event.profileImageBase64, "AQID")
         XCTAssertEqual(event.isDefault, true)
+    }
+
+    func testInlineKeyboardPayloadAndEventPreserveCursorSelection() throws {
+        let payload = SolEngineSessionCommand.inlineKeyboardUpdate(
+            requestID: "keyboard-42",
+            text: "Sol Player",
+            cursorBegin: 3,
+            cursorEnd: 7
+        ).payload
+        XCTAssertEqual(payload["command"] as? String, "inline-keyboard-update")
+        XCTAssertEqual(payload["requestId"] as? String, "keyboard-42")
+        XCTAssertEqual(payload["value"] as? String, "Sol Player")
+        XCTAssertEqual(payload["cursorBegin"] as? Int, 3)
+        XCTAssertEqual(payload["cursorEnd"] as? Int, 7)
+
+        let event = try JSONDecoder().decode(
+            SolEngineNativeEvent.self,
+            from: Data(
+                #"{"protocol":1,"event":"inline-keyboard.shown","requestId":"keyboard-42","defaultValue":"Sol Player","maximumLength":20,"cursorBegin":3,"cursorEnd":7,"overwriteMode":false}"#.utf8
+            )
+        )
+        XCTAssertEqual(event.requestID, "keyboard-42")
+        XCTAssertEqual(event.defaultValue, "Sol Player")
+        XCTAssertEqual(event.maximumLength, 20)
+        XCTAssertEqual(event.cursorBegin, 3)
+        XCTAssertEqual(event.cursorEnd, 7)
+        XCTAssertEqual(event.overwriteMode, false)
+    }
+
+    func testPlayActivityEventDecodesWithoutRawReportPayload() throws {
+        let event = try JSONDecoder().decode(
+            SolEngineNativeEvent.self,
+            from: Data(
+                #"{"protocol":1,"event":"activity.updated","titleId":"0100000000000000","activityId":"event-1","activityTimestamp":1786222800,"activityRoom":"race_lobby","activityKind":"Normal","activityVersion":1}"#.utf8
+            )
+        )
+        XCTAssertEqual(event.activityID, "event-1")
+        XCTAssertEqual(event.titleID, "0100000000000000")
+        XCTAssertEqual(event.activityRoom, "race_lobby")
+        XCTAssertEqual(event.activityKind, "Normal")
+        XCTAssertEqual(event.activityVersion, 1)
     }
 
     private func decodeProviderEvent(

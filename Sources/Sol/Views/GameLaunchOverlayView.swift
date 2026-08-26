@@ -17,7 +17,11 @@ struct GameLaunchOverlayView: View {
                     .accessibilityHidden(true)
 
                 VStack(spacing: 5) {
-                    Text(viewModel.selectedGame?.title ?? "Starting Game")
+                    Text(
+                        viewModel.activeLaunchTitle ??
+                            viewModel.selectedGame?.title ??
+                            "Starting Game"
+                    )
                         .font(.title2.weight(.semibold))
                         .lineLimit(1)
 
@@ -66,16 +70,27 @@ struct GameLaunchOverlayView: View {
             }
             .padding(26)
             .frame(width: 460)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 22))
+            .background(
+                .regularMaterial,
+                in: RoundedRectangle(
+                    cornerRadius: SolGeometry.panelCornerRadius,
+                    style: .continuous
+                )
+            )
             .overlay {
-                RoundedRectangle(cornerRadius: 22)
+                RoundedRectangle(
+                    cornerRadius: SolGeometry.panelCornerRadius,
+                    style: .continuous
+                )
                     .stroke(.white.opacity(0.16), lineWidth: 1)
             }
             .shadow(color: .black.opacity(0.28), radius: 28, y: 12)
         }
         .ignoresSafeArea()
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Launching \(viewModel.selectedGame?.title ?? "game")")
+        .accessibilityLabel(
+            "Launching \(viewModel.activeLaunchTitle ?? viewModel.selectedGame?.title ?? "game")"
+        )
         .accessibilityValue(viewModel.launchActivity.message)
     }
 

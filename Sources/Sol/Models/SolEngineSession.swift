@@ -196,6 +196,14 @@ struct SolEngineDialogOption: Decodable, Equatable {
     let label: String
 }
 
+struct SolEngineInlineKeyboard: Equatable {
+    let requestID: String
+    var text: String
+    var cursorBegin: Int
+    var cursorEnd: Int
+    var maximumLength: Int
+}
+
 struct SolEngineNativeEvent: Decodable, Equatable {
     let protocolVersion: Int
     let event: String
@@ -221,6 +229,9 @@ struct SolEngineNativeEvent: Decodable, Equatable {
     let defaultValue: String?
     let minimumLength: Int?
     let maximumLength: Int?
+    let cursorBegin: Int?
+    let cursorEnd: Int?
+    let overwriteMode: Bool?
     let inputID: String?
     let inputName: String?
     let inputKind: String?
@@ -231,10 +242,63 @@ struct SolEngineNativeEvent: Decodable, Equatable {
     let bindings: [String: String]?
     let bindingName: String?
     let bindingValue: String?
+    let deadzoneLeft: Double?
+    let deadzoneRight: Double?
+    let rangeLeft: Double?
+    let rangeRight: Double?
+    let triggerThreshold: Double?
+    let motionEnabled: Bool?
+    let motionSensitivity: Int?
+    let gyroDeadzone: Double?
+    let rumbleEnabled: Bool?
+    let strongRumble: Double?
+    let weakRumble: Double?
+    let hdRumble: Bool?
+    let ledEnabled: Bool?
+    let ledOff: Bool?
+    let ledRainbow: Bool?
+    let ledColor: UInt32?
     let profileID: String?
     let profileName: String?
     let profileImageBase64: String?
     let isDefault: Bool?
+    let playable: Bool?
+    let abiVersion: UInt32?
+    let deviceName: String?
+    let appleGpuFamily: UInt32?
+    let argumentBufferTier: UInt32?
+    let unifiedMemory: Bool?
+    let supportsBcTextureCompression: Bool?
+    let supportsRayTracing: Bool?
+    let supportsBinaryArchives: Bool?
+    let spirvTranslationReady: Bool?
+    let bufferResourcesReady: Bool?
+    let textureResourcesReady: Bool?
+    let samplerResourcesReady: Bool?
+    let computePipelinesReady: Bool?
+    let renderPipelinesReady: Bool?
+    let renderBindingsReady: Bool?
+    let indexedDrawingReady: Bool?
+    let depthStencilReady: Bool?
+    let blendingReady: Bool?
+    let rasterizerStateReady: Bool?
+    let timelineSynchronizationReady: Bool?
+    let recommendedWorkingSetBytes: UInt64?
+    let testsRun: UInt32?
+    let testsPassed: UInt32?
+    let bytesVerified: UInt64?
+    let shaderCacheHits: UInt32?
+    let shaderCacheMisses: UInt32?
+    let binaryArchivesCreated: UInt32?
+    let gpuMilliseconds: Double?
+    let outputSignature: String?
+    let managedLiveBytes: Int64?
+    let managedHeapBytes: Int64?
+    let managedCommittedBytes: Int64?
+    let managedFragmentedBytes: Int64?
+    let processWorkingSetBytes: Int64?
+    let hvAddressSpaces: Int?
+    let hvVcpus: Int?
     let count: Int?
     let dlcCount: Int?
     let updateCount: Int?
@@ -261,6 +325,11 @@ struct SolEngineNativeEvent: Decodable, Equatable {
     let progressTotal: Int?
     let playtimeSeconds: Double?
     let lastPlayedUtc: String?
+    let activityID: String?
+    let activityTimestamp: Int64?
+    let activityRoom: String?
+    let activityKind: String?
+    let activityVersion: UInt32?
     let options: [SolEngineDialogOption]?
     let buttons: [String]?
     let capabilities: [String]?
@@ -290,6 +359,9 @@ struct SolEngineNativeEvent: Decodable, Equatable {
         case defaultValue
         case minimumLength
         case maximumLength
+        case cursorBegin
+        case cursorEnd
+        case overwriteMode
         case inputID = "inputId"
         case inputName
         case inputKind
@@ -300,10 +372,63 @@ struct SolEngineNativeEvent: Decodable, Equatable {
         case bindings
         case bindingName
         case bindingValue
+        case deadzoneLeft
+        case deadzoneRight
+        case rangeLeft
+        case rangeRight
+        case triggerThreshold
+        case motionEnabled
+        case motionSensitivity
+        case gyroDeadzone
+        case rumbleEnabled
+        case strongRumble
+        case weakRumble
+        case hdRumble
+        case ledEnabled
+        case ledOff
+        case ledRainbow
+        case ledColor
         case profileID = "profileId"
         case profileName
         case profileImageBase64
         case isDefault
+        case playable
+        case abiVersion
+        case deviceName
+        case appleGpuFamily
+        case argumentBufferTier
+        case unifiedMemory
+        case supportsBcTextureCompression
+        case supportsRayTracing
+        case supportsBinaryArchives
+        case spirvTranslationReady
+        case bufferResourcesReady
+        case textureResourcesReady
+        case samplerResourcesReady
+        case computePipelinesReady
+        case renderPipelinesReady
+        case renderBindingsReady
+        case indexedDrawingReady
+        case depthStencilReady
+        case blendingReady
+        case rasterizerStateReady
+        case timelineSynchronizationReady
+        case recommendedWorkingSetBytes
+        case testsRun
+        case testsPassed
+        case bytesVerified
+        case shaderCacheHits
+        case shaderCacheMisses
+        case binaryArchivesCreated
+        case gpuMilliseconds
+        case outputSignature
+        case managedLiveBytes
+        case managedHeapBytes
+        case managedCommittedBytes
+        case managedFragmentedBytes
+        case processWorkingSetBytes
+        case hvAddressSpaces
+        case hvVcpus
         case count
         case dlcCount
         case updateCount
@@ -330,6 +455,11 @@ struct SolEngineNativeEvent: Decodable, Equatable {
         case progressTotal
         case playtimeSeconds
         case lastPlayedUtc
+        case activityID = "activityId"
+        case activityTimestamp
+        case activityRoom
+        case activityKind
+        case activityVersion
         case options
         case buttons
         case capabilities
@@ -348,6 +478,14 @@ enum SolEngineSessionCommand {
     case screenshot
     case scanAmiibo(id: String, useRandomUUID: Bool)
     case dialogResponse(requestID: String, accepted: Bool, value: String?)
+    case inlineKeyboardUpdate(
+        requestID: String,
+        text: String,
+        cursorBegin: Int,
+        cursorEnd: Int
+    )
+    case inlineKeyboardSubmit(requestID: String, text: String)
+    case inlineKeyboardCancel(requestID: String)
 
     var payload: [String: Any] {
         switch self {
@@ -387,6 +525,29 @@ enum SolEngineSessionCommand {
                 payload["value"] = value
             }
             return payload
+        case .inlineKeyboardUpdate(let requestID, let text, let cursorBegin, let cursorEnd):
+            return [
+                "protocol": 1,
+                "command": "inline-keyboard-update",
+                "requestId": requestID,
+                "value": text,
+                "cursorBegin": max(0, cursorBegin),
+                "cursorEnd": max(0, cursorEnd),
+                "overwriteMode": false,
+            ]
+        case .inlineKeyboardSubmit(let requestID, let text):
+            return [
+                "protocol": 1,
+                "command": "inline-keyboard-submit",
+                "requestId": requestID,
+                "value": text,
+            ]
+        case .inlineKeyboardCancel(let requestID):
+            return [
+                "protocol": 1,
+                "command": "inline-keyboard-cancel",
+                "requestId": requestID,
+            ]
         }
     }
 }

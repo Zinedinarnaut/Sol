@@ -168,6 +168,94 @@ final class SolEngineConfigurationStore: ObservableObject {
         set { update("audio_volume", value: min(max(newValue, 0), 1)) }
     }
 
+    var enableFileLog: Bool {
+        get { bool("enable_file_log", default: true) }
+        set { update("enable_file_log", value: newValue) }
+    }
+
+    var loggingEnableDebug: Bool {
+        get { bool("logging_enable_debug", default: false) }
+        set { update("logging_enable_debug", value: newValue) }
+    }
+
+    var loggingEnableStub: Bool {
+        get { bool("logging_enable_stub", default: true) }
+        set { update("logging_enable_stub", value: newValue) }
+    }
+
+    var loggingEnableInfo: Bool {
+        get { bool("logging_enable_info", default: true) }
+        set { update("logging_enable_info", value: newValue) }
+    }
+
+    var loggingEnableWarn: Bool {
+        get { bool("logging_enable_warn", default: true) }
+        set { update("logging_enable_warn", value: newValue) }
+    }
+
+    var loggingEnableError: Bool {
+        get { bool("logging_enable_error", default: true) }
+        set { update("logging_enable_error", value: newValue) }
+    }
+
+    var loggingEnableTrace: Bool {
+        get { bool("logging_enable_trace", default: false) }
+        set { update("logging_enable_trace", value: newValue) }
+    }
+
+    var loggingEnableGuest: Bool {
+        get { bool("logging_enable_guest", default: true) }
+        set { update("logging_enable_guest", value: newValue) }
+    }
+
+    var loggingEnableFSAccessLog: Bool {
+        get { bool("logging_enable_fs_access_log", default: false) }
+        set { update("logging_enable_fs_access_log", value: newValue) }
+    }
+
+    var loggingEnableNetwork: Bool {
+        get { bool("logging_enable_net_log", default: false) }
+        set { update("logging_enable_net_log", value: newValue) }
+    }
+
+    var fsGlobalAccessLogMode: Int {
+        get { integer("fs_global_access_log_mode", default: 0) }
+        set { update("fs_global_access_log_mode", value: min(max(newValue, 0), 3)) }
+    }
+
+    var ignoreMissingServices: Bool {
+        get { bool("ignore_missing_services", default: false) }
+        set { update("ignore_missing_services", value: newValue) }
+    }
+
+    var enableGDBStub: Bool {
+        get { bool("enable_gdb_stub", default: false) }
+        set { update("enable_gdb_stub", value: newValue) }
+    }
+
+    var gdbStubPort: Int {
+        get { integer("gdb_stub_port", default: 55_555) }
+        set { update("gdb_stub_port", value: min(max(newValue, 1_024), 65_535)) }
+    }
+
+    var debuggerSuspendOnStart: Bool {
+        get { bool("debugger_suspend_on_start", default: false) }
+        set { update("debugger_suspend_on_start", value: newValue) }
+    }
+
+    var graphicsShadersDumpPath: String {
+        get { string("graphics_shaders_dump_path", default: "") }
+        set {
+            let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            update(
+                "graphics_shaders_dump_path",
+                value: trimmed.isEmpty
+                    ? ""
+                    : URL(fileURLWithPath: trimmed, isDirectory: true).standardizedFileURL.path
+            )
+        }
+    }
+
     var systemLanguage: SolEngineSystemLanguage {
         get {
             SolEngineSystemLanguage(

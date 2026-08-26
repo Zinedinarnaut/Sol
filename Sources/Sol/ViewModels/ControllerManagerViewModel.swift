@@ -80,6 +80,7 @@ final class ControllerManagerViewModel: ObservableObject {
     }
 
     private func updateControllers(_ newControllers: [ControllerInfo]) {
+        guard controllers != newControllers else { return }
         controllers = newControllers
         if selectedControllerID == nil, let first = newControllers.first {
             selectedControllerID = first.id

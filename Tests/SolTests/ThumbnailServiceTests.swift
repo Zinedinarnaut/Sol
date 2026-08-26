@@ -185,6 +185,39 @@ final class ThumbnailServiceTests: XCTestCase, @unchecked Sendable {
         XCTAssertEqual(image?.size.height, 500)
     }
 
+    func testFetchBackgroundDownsamplesForThePresentationSurface() async throws {
+        let title = "Downsampled Background \(UUID().uuidString)"
+        let imageData = try makeJPEG(width: 3_200, height: 1_800)
+        let cacheKey = backgroundCacheKey(for: title)
+        XCTAssertNotNil(
+            ImageCache.shared.store(
+                data: imageData,
+                forKey: cacheKey,
+                fileExtension: "jpg"
+            )
+        )
+        defer { ImageCache.shared.remove(forKey: cacheKey) }
+
+        let service = ThumbnailService()
+        let game = Game(
+            id: title,
+            title: title,
+            titleId: nil,
+            fileURL: URL(fileURLWithPath: "/tmp/\(title).nsp"),
+            hoursPlayed: 0,
+            lastPlayed: nil
+        )
+
+        let image = await service.fetchBackground(
+            for: game,
+            targetPixelSize: 1_600
+        )
+
+        XCTAssertEqual(image?.size.width, 1_600)
+        XCTAssertEqual(image?.size.height, 900)
+        XCTAssertEqual(ImageCache.shared.imageData(forKey: cacheKey), imageData)
+    }
+
     private func backgroundCacheKey(for title: String) -> String {
         let storedVersion = UserDefaults.standard.integer(forKey: "backgroundCacheVersion")
         let version = max(storedVersion, 2)

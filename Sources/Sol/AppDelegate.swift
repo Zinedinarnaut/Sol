@@ -15,6 +15,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         SolEngineEmbeddedRuntime.shared.stop()
     }
 
+    func applicationShouldHandleReopen(
+        _ sender: NSApplication,
+        hasVisibleWindows flag: Bool
+    ) -> Bool {
+        LauncherAppController.shared.activateApp()
+        return true
+    }
+
     func applicationDockMenu(_ sender: NSApplication) -> NSMenu? {
         refreshDockGames()
 
@@ -51,8 +59,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func application(_ application: NSApplication, open urls: [URL]) {
         guard let url = urls.first else { return }
-        SharedDataStore.shared.setPendingLaunch(path: url.path)
-        LauncherAppController.shared.launchGame(path: url.path)
+        LauncherAppController.shared.open(url: url)
     }
 
     @objc private func openSol() {

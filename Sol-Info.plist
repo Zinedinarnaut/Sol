@@ -64,6 +64,18 @@
 	<string>Sol uses your local network to find and connect to multiplayer sessions.</string>
 	<key>NSPrefersDisplaySafeAreaCompatibilityMode</key>
 	<false/>
+	<key>NSUbiquitousContainers</key>
+	<dict>
+		<key>iCloud.com.solemu.app</key>
+		<dict>
+			<key>NSUbiquitousContainerIsDocumentScopePublic</key>
+			<false/>
+			<key>NSUbiquitousContainerName</key>
+			<string>Sol</string>
+			<key>NSUbiquitousContainerSupportedFolderLevels</key>
+			<string>Any</string>
+		</dict>
+	</dict>
 	<key>UTTypeDeclarations</key>
 	<array>
 		<dict>

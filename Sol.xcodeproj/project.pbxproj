@@ -18,22 +18,35 @@
 		19B97FED49E4287C14876D8B /* MetalBackgroundView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 143D3E2BF8E22749C4602551 /* MetalBackgroundView.swift */; };
 		1A30C1CE32ABBD110AC62493 /* ConsoleLine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB18C931600F48353FDDC824 /* ConsoleLine.swift */; };
 		1A4928E5079EA4E1AD78846C /* LauncherSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CA859AB9D5213F2FC95EBB1 /* LauncherSettingsView.swift */; };
+		1A9870746AFD9F58276A6276 /* Glur in Frameworks */ = {isa = PBXBuildFile; productRef = F0BA9A2907B727AE9BA235F5 /* Glur */; };
 		1CDB1906837C6E82CB5B339B /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCBB07FD3F601538F76D4A64 /* ShareViewController.swift */; };
+		21D102A9C7A26E40314D2B46 /* SolSaveVaultService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72FCF2E199DFB44813AA0A71 /* SolSaveVaultService.swift */; };
+		2586C7C2AB699DD1B67DEF8F /* ArgumentParser in Frameworks */ = {isa = PBXBuildFile; productRef = 6C8450425BD291C96732F9FA /* ArgumentParser */; };
 		26D9006C87CF25E58AE8577A /* ThumbnailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 160CCF01F1FA0B68D40D44CD /* ThumbnailView.swift */; };
 		2753F51E2F21CF7F9CF898F9 /* PreviewViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FC25C164B51C9624DD1C1F6 /* PreviewViewController.swift */; };
 		282B619E5D094033E55AE2A5 /* EmbeddedGamePlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11DD067578CE68038F79042D /* EmbeddedGamePlayerView.swift */; };
 		29079AA3B70587180B57D03F /* AppIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DF7505043EBCFCFBBA934F2 /* AppIntents.swift */; };
 		293BF2BD2ED2690559AEABE0 /* SharedLauncherData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 669474C502DA47129D8318B8 /* SharedLauncherData.swift */; };
+		2959467D050BF60041F418F2 /* SolCloudModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1927EFFF3EEA044C8FA68F0C /* SolCloudModels.swift */; };
 		2AF40AB5F118F11B006CD3FA /* AmiiboPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F902914D73DB8E3BAEC2A8E4 /* AmiiboPickerView.swift */; };
+		2BC6A56EF3BAFCDC59D97676 /* ProfileHubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D029FEC8CB925DDD4A60F4FA /* ProfileHubView.swift */; };
 		2C55EF2F6674D9C1E426672D /* SolEngineSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEE078F7A542A06FCC9A47E1 /* SolEngineSession.swift */; };
 		2E340399C62EF8528836CF51 /* DLSMFeatureGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72603EA70AE71D341EEF1499 /* DLSMFeatureGate.swift */; };
+		2E47CD83BAB49F0290C6ADA7 /* Shimmer in Frameworks */ = {isa = PBXBuildFile; productRef = D988B0EC2A032D2C8DC90D9C /* Shimmer */; };
 		2F18273472769AB027D5DCAC /* DLSMTrainingCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A02599C59C8627D3CEFEB2E /* DLSMTrainingCapture.swift */; };
 		302C7065569A44AF53EE0A57 /* SharedLauncherData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 669474C502DA47129D8318B8 /* SharedLauncherData.swift */; };
+		31FD3F13FC0C0191BA084C76 /* SolPixelAvatar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CEAEE824478C5792B47AF1A /* SolPixelAvatar.swift */; };
 		333B0EB3CA1ACC0FF5D45264 /* SolEngineConfigurationStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FA375FBF3D67A75DF019ADF /* SolEngineConfigurationStore.swift */; };
 		36FEA7DF1A4AD4708E020134 /* SolApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76D87B6509DAB2C17F2E87A5 /* SolApp.swift */; };
 		37DE6CF16F276E0FF6D83061 /* LauncherView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63FC2D38F0124E6FA4F82297 /* LauncherView.swift */; };
 		380FC5C1DBE21F8BA7E8CF92 /* SolWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE6BB7212737BEE76F60D24C /* SolWidgets.swift */; };
+		39173799F5E39E7D84E30138 /* ProfileCloudView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 363AA5D2EEE40FEBAC2C7192 /* ProfileCloudView.swift */; };
+		39C3A1BFD3DB8B919B457528 /* SolOnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52F3698D03C3350CF3F1F554 /* SolOnboardingView.swift */; };
 		3ABF4E6C6BAFDE83433FAA31 /* ControllerModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27D0FF1C32A7DC2A056A8A1E /* ControllerModels.swift */; };
+		3CCDDD3E0C2EEE051BBBBE0A /* SolFriendsModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D9974DAB1999F1E7F8EDD83 /* SolFriendsModels.swift */; };
+		42083AA721BE9EDCD19A441E /* SolWhatsNew.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5874951F51AA84EFA270BDC7 /* SolWhatsNew.swift */; };
+		433D160EC648BE535448FFA2 /* ProfileSocialListsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 766E1670D83E463C6563237C /* ProfileSocialListsView.swift */; };
+		43F8D8207EB6C6C8609C957F /* ProfileOverviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6840AF9586516FADE4DF72AE /* ProfileOverviewView.swift */; };
 		44E0BC07C75C224D0720C4A9 /* SolEngineConfigurationOptions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1994BE2A5F2F369549368524 /* SolEngineConfigurationOptions.swift */; };
 		4569B495A6CF572BE2AFD361 /* GameScannerService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A29B4ED94A8F6E5D7D0B761E /* GameScannerService.swift */; };
 		46D9EBE801004937322CE3C6 /* ProfileMenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E6C88291A5173753BC491B6 /* ProfileMenuView.swift */; };
@@ -44,10 +57,13 @@
 		5C60BCA39EA226AD20BB913F /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = D33FA670F70CEB75F7B4BBD0 /* Theme.swift */; };
 		5EBC35636AB25A24514ADBDB /* LauncherAppController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5D42F0B77B89404DEC3C410 /* LauncherAppController.swift */; };
 		603AD59060F874561F27167A /* NativeToolbarSearchField.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B3062D954A68460BCDC6E76 /* NativeToolbarSearchField.swift */; };
+		619F5AB5EC7A294F568BCB9B /* ProfileFriendsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F32E5ECEDBBC404A48718487 /* ProfileFriendsView.swift */; };
+		62B66622735B65F2440A7EAA /* SolCloudBackupCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA581DF43F283BBA2AA42F24 /* SolCloudBackupCoordinator.swift */; };
 		6501CD365AEED8906FF7BB53 /* SolWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = EF46F346608715F0A373DA84 /* SolWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		670BCD464515B0FE3682E283 /* DirectoryPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5D6320F761F6CB008D25704 /* DirectoryPickerView.swift */; };
 		684280B7BB8D2693DEC864D2 /* GitHubUpdateService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EC800EAF372F75C93153357 /* GitHubUpdateService.swift */; };
 		6F47A759D30D6079369E17C8 /* ControllerNavigationAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1820D2C562959887D415C8A2 /* ControllerNavigationAction.swift */; };
+		6FCF9EB54D7D30524540594E /* SolPlayActivityLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F3A53078B85EB061A970F1B /* SolPlayActivityLibrary.swift */; };
 		705C8618AA50BCA6FF7AFF28 /* SolDLSM.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 869D62DD47D67C0C2A948157 /* SolDLSM.framework */; };
 		7148BF9FF7233430FB735931 /* DLSMConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9B9473C70107F8ACAC57BD6 /* DLSMConfiguration.swift */; };
 		77E3059E4AFCBDCF05404BD6 /* SolEngineSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF37D279EF96F0FE0D9D7F63 /* SolEngineSettingsView.swift */; };
@@ -60,39 +76,63 @@
 		92A317F16235987BDD679A4D /* DLSMGPUTimingAccumulator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A893C47257978D6EB72794BC /* DLSMGPUTimingAccumulator.swift */; };
 		93A908251A2C357B89B31406 /* SolEnginePathResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B024CC825CDE671800EF842 /* SolEnginePathResolver.swift */; };
 		94AE9EE0B1D7A90C4932CC63 /* DLSMSolTemporalModelProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6809C5F1F7DD878C237EB75F /* DLSMSolTemporalModelProvider.swift */; };
+		9584ACA272A3D718B288009B /* ProfileGameUsersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A706CAED2170EEB344C06EB /* ProfileGameUsersView.swift */; };
 		97950E2F634BCF3360DD9188 /* SolEngineProcessService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4480DF52C902338E47875FE /* SolEngineProcessService.swift */; };
+		9838714A43B8AEE72831A82F /* SolScreenshotLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FF1EE20CC9C24D1645DBFC3 /* SolScreenshotLibrary.swift */; };
 		98ADBBE6827200F23228A740 /* sol-temporal-v1.json in Resources */ = {isa = PBXBuildFile; fileRef = D200E4F084D0E8486598A2DB /* sol-temporal-v1.json */; };
 		9A96187578728DD1AFF950BA /* DLSMProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9DA0CFABA4BCBB69CCC2252 /* DLSMProcessor.swift */; };
+		9D45139BC96F8C3A508A0100 /* SolCloudSyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35FD3E8D1649FDA9D11FE836 /* SolCloudSyncService.swift */; };
+		9F87DEA6BBCD5AECF3210B11 /* ProfileCapturesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05DEBD67F807FBA26938867C /* ProfileCapturesView.swift */; };
 		A0E4034BBC8D6A305797F1DB /* sol-temporal-v0.json in Resources */ = {isa = PBXBuildFile; fileRef = 82B3D9062DC31F7BBFB8E782 /* sol-temporal-v0.json */; };
+		A60342A373F3BEE7F63E305F /* ProfileActivityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30EEC98CE6991A55D9E27F3E /* ProfileActivityView.swift */; };
 		A6D2925A4388B18AC7DF184C /* EmulationControlBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1C1E02B1E8BBF2D19D732CC /* EmulationControlBar.swift */; };
 		A70D844A2804DC5037DBBB6A /* SharedLauncherData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 669474C502DA47129D8318B8 /* SharedLauncherData.swift */; };
 		A7CD35F41B7FF91CC3E7B9D0 /* SplashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6F8492EC09B72A3D5F99FD5 /* SplashView.swift */; };
 		A80E939E6798E85A905949A2 /* ICloudProfileSyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED9FB1FB4A23251F8AE53277 /* ICloudProfileSyncService.swift */; };
 		A84215AE392F55DDB7C5D7BB /* SharedLauncherData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 669474C502DA47129D8318B8 /* SharedLauncherData.swift */; };
+		A9BB654A4FBB3DA1A85A3682 /* SolModManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98440A4963C3538021BCF8BA /* SolModManager.swift */; };
 		ADA9E5F9B55B2563559AA0EC /* ControllerManagerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EE608B9D2057B0E47D2DE5F /* ControllerManagerViewModel.swift */; };
 		B39079FDF511AADFFAE6229D /* SolEngineNativeBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7F51509A6F0B6C43F6FE4A2 /* SolEngineNativeBridge.swift */; };
+		B8E8FAADCA9A1E1552CA0F26 /* ProfileSaveVaultView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F7C07435B44A4051838FFCB /* ProfileSaveVaultView.swift */; };
 		B984BE55F5C6CD83B9B5B121 /* ConsoleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39A0C9D13B057BFB990B8E5E /* ConsoleView.swift */; };
+		BFA5DEDF344537DFA5C185D8 /* ProfileEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75FA24F09E141355B53CE241 /* ProfileEditorView.swift */; };
 		C00E7686ADFFCA9A27C6EF22 /* SolEngineEmbeddedRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A9C1305BEB529E6731E46A5 /* SolEngineEmbeddedRuntime.swift */; };
 		C155C2A38E9399B76DDE652F /* SolEngineMetadataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DDAFFBDE9DD0E2CCFF62412 /* SolEngineMetadataService.swift */; };
 		C1EE58FB7E7C084D89043311 /* SolDLSMPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = F18348E81ABCC7D2CB8941B8 /* SolDLSMPipeline.swift */; };
+		C2BF99B3F566BE34C36F8333 /* WhatsNewKit in Frameworks */ = {isa = PBXBuildFile; productRef = F94CF31AEECB60F95F5B71EA /* WhatsNewKit */; };
 		C303C2394C4D906D4293D75F /* NetworkInterfaceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DE7532A4CBE0D7809C5C19D /* NetworkInterfaceService.swift */; };
 		C33A592FA409E391FD10DE13 /* ImageCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = B85D929DC8B97A60AB9174A8 /* ImageCache.swift */; };
+		C50DC882800458B0E24BABC4 /* SolPlayActivityModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A792C80945EE7524D51DB18 /* SolPlayActivityModels.swift */; };
+		C5E846A4C61E3D559E159BD3 /* SolProfileImageStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1B59923665EFE84ED6FBB1 /* SolProfileImageStore.swift */; };
+		D113F2BCD43734651387EBBE /* SolSaveVaultModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82EB701952325E78A5754D89 /* SolSaveVaultModels.swift */; };
+		D11E9A790F756532A57B69C8 /* ColorfulX in Frameworks */ = {isa = PBXBuildFile; productRef = 594C9E2441C36882D1A841DD /* ColorfulX */; };
 		D1467CED80FE4BD0B9AD2BF5 /* GameCarouselView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B18E717394ADCFAEA80A169F /* GameCarouselView.swift */; };
 		D16B32F42450CD9E62DE8BD2 /* SolEngineDataMigrationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1B2FE88E9C65C092FF7E050 /* SolEngineDataMigrationService.swift */; };
 		D274329274C7D63F162EE401 /* TopPlayedWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30F77A3AC106E55B1BB01009 /* TopPlayedWidget.swift */; };
 		D3787EBD8AE4FD986551646A /* DLSMTemporalReconstructionProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ECA6C5DA73D6E1D267C1E26 /* DLSMTemporalReconstructionProvider.swift */; };
+		D54027DF7DD4C042EB42C500 /* SolInlineKeyboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1404193224D90FCF038E059 /* SolInlineKeyboardView.swift */; };
+		D6087432E46DBF93FE0EFD2E /* SolFriendsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A87D6A842AB95C46E3480F /* SolFriendsStore.swift */; };
 		D69108059E283B2EAA00659D /* GameCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4792960B1F92A85412AAB25D /* GameCardView.swift */; };
+		D6E18C325B08102708F51FC5 /* SolPixelAvatarRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 292953628ACD69F78C0940C7 /* SolPixelAvatarRenderer.swift */; };
 		D80D262CF30950C753BE8C9B /* ThumbnailService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC69C5F6310317F45D3DB6E3 /* ThumbnailService.swift */; };
+		D9F486E53E2F49B7D02E5025 /* SolLaunchOptions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B51D830DC76E70F1A163B6C2 /* SolLaunchOptions.swift */; };
 		DA32AFA30F4C3D438F1AD159 /* MultiplayerSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61189C0316DF85E92CF9389E /* MultiplayerSettingsView.swift */; };
+		DB4F135A0D5339A97870EFFB /* SolModModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 338175E8B30221D87B62C9B5 /* SolModModels.swift */; };
 		DB8CE6AF497067CA71635402 /* SoundPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F504D272378BA99848B1119 /* SoundPlayer.swift */; };
+		DBAEFC232A59B6460154B0F0 /* SolPixelAvatarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9777A5949989724955974C4 /* SolPixelAvatarView.swift */; };
 		DBDBCE02E06E443C12E44EC3 /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57685CA6E829BD07569767AB /* SettingsStore.swift */; };
 		DC68B464DF516A97BC1F1E74 /* WidgetData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F0DA52F5715AA19CA49D5DD /* WidgetData.swift */; };
 		E0CF3AE540D43D833DECA310 /* AmiiboCatalogItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DCBD05469621B9E7CBA9931 /* AmiiboCatalogItem.swift */; };
+		E262FD95BF1D9DB7758AADE3 /* SemanticVersion in Frameworks */ = {isa = PBXBuildFile; productRef = 6E44B5B97ED3700F72F0A9D5 /* SemanticVersion */; };
 		E2654A698DF5BE92C7217A39 /* Game.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B2E38227F888F4485F891AF /* Game.swift */; };
 		E7FA6B381C7CA7F76295AAB7 /* LibraryBrowserView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FECE299E677949C539A96448 /* LibraryBrowserView.swift */; };
+		E8F6CD80426000F9C15AD6F9 /* SolOnboardingStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44900815561BC4F02BAE0426 /* SolOnboardingStore.swift */; };
 		EB14A53D5D5C4B3EEB6549BD /* HotKeyManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5822C3072F38F29604785D3A /* HotKeyManager.swift */; };
 		EBE143755AA820B192873772 /* ControllerManagerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61585F5529798BA2B0E65377 /* ControllerManagerView.swift */; };
 		EDEC088BF0CB82B0228F1FC1 /* SolShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 4DFE305EA7EA80665E8DADFB /* SolShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		EE619684EE8ACE8CA4A0768D /* DockProgress in Frameworks */ = {isa = PBXBuildFile; productRef = 172CC25DD96553782FAE1653 /* DockProgress */; };
+		F1AB0C433E397A5264A7EF05 /* GameModsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB0B2A1D0DD02D360DB0AD75 /* GameModsView.swift */; };
+		F25D86AA2A76805BB977836C /* SolLauncherAccessPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9289BE8D5F081C071C3A035 /* SolLauncherAccessPolicy.swift */; };
 		F74C2D67D7046D425FA526A2 /* ButtonStyles.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C4EB93AAE2B0A3E05BCF556 /* ButtonStyles.swift */; };
 		F7A6CD989779BB100843B9DD /* GamingModeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C23332CB4CFBFD70FCB3A8C3 /* GamingModeService.swift */; };
 		F860C614FE22C6D6D3D93642 /* SolEngineBackendService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07C0EA3393731C8F4D52864B /* SolEngineBackendService.swift */; };
@@ -161,35 +201,49 @@
 
 /* Begin PBXFileReference section */
 		044CB991B13009965D4126C5 /* QuickLaunchWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickLaunchWidget.swift; sourceTree = "<group>"; };
+		05DEBD67F807FBA26938867C /* ProfileCapturesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileCapturesView.swift; sourceTree = "<group>"; };
 		07C0EA3393731C8F4D52864B /* SolEngineBackendService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SolEngineBackendService.swift; sourceTree = "<group>"; };
+		0B1B59923665EFE84ED6FBB1 /* SolProfileImageStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SolProfileImageStore.swift; sourceTree = "<group>"; };
 		11DD067578CE68038F79042D /* EmbeddedGamePlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmbeddedGamePlayerView.swift; sourceTree = "<group>"; };
 		12048DD4C44A4AC422790774 /* Sol.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Sol.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		143D3E2BF8E22749C4602551 /* MetalBackgroundView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalBackgroundView.swift; sourceTree = "<group>"; };
 		160CCF01F1FA0B68D40D44CD /* ThumbnailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailView.swift; sourceTree = "<group>"; };
 		1820D2C562959887D415C8A2 /* ControllerNavigationAction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControllerNavigationAction.swift; sourceTree = "<group>"; };
+		1927EFFF3EEA044C8FA68F0C /* SolCloudModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SolCloudModels.swift; sourceTree = "<group>"; };
 		1994BE2A5F2F369549368524 /* SolEngineConfigurationOptions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SolEngineConfigurationOptions.swift; sourceTree = "<group>"; };
+		1CEAEE824478C5792B47AF1A /* SolPixelAvatar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SolPixelAvatar.swift; sourceTree = "<group>"; };
 		1DF7505043EBCFCFBBA934F2 /* AppIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppIntents.swift; sourceTree = "<group>"; };
 		1ECA6C5DA73D6E1D267C1E26 /* DLSMTemporalReconstructionProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DLSMTemporalReconstructionProvider.swift; sourceTree = "<group>"; };
 		21E69CD7F7C82986CFF8F00E /* MetalRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalRenderer.swift; sourceTree = "<group>"; };
 		27D0FF1C32A7DC2A056A8A1E /* ControllerModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControllerModels.swift; sourceTree = "<group>"; };
+		292953628ACD69F78C0940C7 /* SolPixelAvatarRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SolPixelAvatarRenderer.swift; sourceTree = "<group>"; };
 		2EE608B9D2057B0E47D2DE5F /* ControllerManagerViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControllerManagerViewModel.swift; sourceTree = "<group>"; };
 		2FA375FBF3D67A75DF019ADF /* SolEngineConfigurationStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SolEngineConfigurationStore.swift; sourceTree = "<group>"; };
+		30EEC98CE6991A55D9E27F3E /* ProfileActivityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileActivityView.swift; sourceTree = "<group>"; };
 		30F77A3AC106E55B1BB01009 /* TopPlayedWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopPlayedWidget.swift; sourceTree = "<group>"; };
+		338175E8B30221D87B62C9B5 /* SolModModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SolModModels.swift; sourceTree = "<group>"; };
 		35BA3BEC4FD5C0006F1FCFC0 /* AppIcon.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = AppIcon.icns; sourceTree = "<group>"; };
+		35FD3E8D1649FDA9D11FE836 /* SolCloudSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SolCloudSyncService.swift; sourceTree = "<group>"; };
+		363AA5D2EEE40FEBAC2C7192 /* ProfileCloudView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileCloudView.swift; sourceTree = "<group>"; };
 		39A0C9D13B057BFB990B8E5E /* ConsoleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConsoleView.swift; sourceTree = "<group>"; };
 		3B024CC825CDE671800EF842 /* SolEnginePathResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SolEnginePathResolver.swift; sourceTree = "<group>"; };
+		44900815561BC4F02BAE0426 /* SolOnboardingStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SolOnboardingStore.swift; sourceTree = "<group>"; };
 		4792960B1F92A85412AAB25D /* GameCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameCardView.swift; sourceTree = "<group>"; };
 		47B25D2FD4A489E36F6BCD21 /* SpotlightIndexService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotlightIndexService.swift; sourceTree = "<group>"; };
 		4959B37FF0373FF935F9CE7E /* StatusBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusBarController.swift; sourceTree = "<group>"; };
 		4A02599C59C8627D3CEFEB2E /* DLSMTrainingCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DLSMTrainingCapture.swift; sourceTree = "<group>"; };
+		4A706CAED2170EEB344C06EB /* ProfileGameUsersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileGameUsersView.swift; sourceTree = "<group>"; };
 		4DDAFFBDE9DD0E2CCFF62412 /* SolEngineMetadataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SolEngineMetadataService.swift; sourceTree = "<group>"; };
 		4DFE305EA7EA80665E8DADFB /* SolShare.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SolShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		4EC800EAF372F75C93153357 /* GitHubUpdateService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubUpdateService.swift; sourceTree = "<group>"; };
 		4FC25C164B51C9624DD1C1F6 /* PreviewViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewViewController.swift; sourceTree = "<group>"; };
+		4FF1EE20CC9C24D1645DBFC3 /* SolScreenshotLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SolScreenshotLibrary.swift; sourceTree = "<group>"; };
+		52F3698D03C3350CF3F1F554 /* SolOnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SolOnboardingView.swift; sourceTree = "<group>"; };
 		540876A49E14D74C54B49275 /* SolQuickLook.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SolQuickLook.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		5727DCEAF983B134BB8D9180 /* AmiiboCatalogService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmiiboCatalogService.swift; sourceTree = "<group>"; };
 		57685CA6E829BD07569767AB /* SettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsStore.swift; sourceTree = "<group>"; };
 		5822C3072F38F29604785D3A /* HotKeyManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotKeyManager.swift; sourceTree = "<group>"; };
+		5874951F51AA84EFA270BDC7 /* SolWhatsNew.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SolWhatsNew.swift; sourceTree = "<group>"; };
 		5B3062D954A68460BCDC6E76 /* NativeToolbarSearchField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeToolbarSearchField.swift; sourceTree = "<group>"; };
 		5CA859AB9D5213F2FC95EBB1 /* LauncherSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LauncherSettingsView.swift; sourceTree = "<group>"; };
 		5E2C45BCFEC9D8A72D2E557D /* WidgetGameCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetGameCard.swift; sourceTree = "<group>"; };
@@ -199,38 +253,53 @@
 		63FC2D38F0124E6FA4F82297 /* LauncherView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LauncherView.swift; sourceTree = "<group>"; };
 		669474C502DA47129D8318B8 /* SharedLauncherData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedLauncherData.swift; sourceTree = "<group>"; };
 		6809C5F1F7DD878C237EB75F /* DLSMSolTemporalModelProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DLSMSolTemporalModelProvider.swift; sourceTree = "<group>"; };
+		6840AF9586516FADE4DF72AE /* ProfileOverviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileOverviewView.swift; sourceTree = "<group>"; };
 		6A9C1305BEB529E6731E46A5 /* SolEngineEmbeddedRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SolEngineEmbeddedRuntime.swift; sourceTree = "<group>"; };
 		6B2E38227F888F4485F891AF /* Game.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Game.swift; sourceTree = "<group>"; };
 		6F504D272378BA99848B1119 /* SoundPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundPlayer.swift; sourceTree = "<group>"; };
+		6F7C07435B44A4051838FFCB /* ProfileSaveVaultView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileSaveVaultView.swift; sourceTree = "<group>"; };
 		72603EA70AE71D341EEF1499 /* DLSMFeatureGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DLSMFeatureGate.swift; sourceTree = "<group>"; };
+		72FCF2E199DFB44813AA0A71 /* SolSaveVaultService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SolSaveVaultService.swift; sourceTree = "<group>"; };
+		75FA24F09E141355B53CE241 /* ProfileEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileEditorView.swift; sourceTree = "<group>"; };
+		766E1670D83E463C6563237C /* ProfileSocialListsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileSocialListsView.swift; sourceTree = "<group>"; };
 		76D87B6509DAB2C17F2E87A5 /* SolApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SolApp.swift; sourceTree = "<group>"; };
+		7A792C80945EE7524D51DB18 /* SolPlayActivityModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SolPlayActivityModels.swift; sourceTree = "<group>"; };
+		7D9974DAB1999F1E7F8EDD83 /* SolFriendsModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SolFriendsModels.swift; sourceTree = "<group>"; };
 		82B3D9062DC31F7BBFB8E782 /* sol-temporal-v0.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "sol-temporal-v0.json"; sourceTree = "<group>"; };
+		82EB701952325E78A5754D89 /* SolSaveVaultModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SolSaveVaultModels.swift; sourceTree = "<group>"; };
 		869D62DD47D67C0C2A948157 /* SolDLSM.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = SolDLSM.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		88940B9EDE14792B103225F4 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		8EED33A119FD4024F56C2181 /* ControllerManagerService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControllerManagerService.swift; sourceTree = "<group>"; };
 		8FA0BEEEC190CE80372CAEE5 /* DLSMTemporalInputProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DLSMTemporalInputProvider.swift; sourceTree = "<group>"; };
+		98440A4963C3538021BCF8BA /* SolModManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SolModManager.swift; sourceTree = "<group>"; };
 		9C4EB93AAE2B0A3E05BCF556 /* ButtonStyles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ButtonStyles.swift; sourceTree = "<group>"; };
 		9DCBD05469621B9E7CBA9931 /* AmiiboCatalogItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmiiboCatalogItem.swift; sourceTree = "<group>"; };
 		9DE7532A4CBE0D7809C5C19D /* NetworkInterfaceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkInterfaceService.swift; sourceTree = "<group>"; };
 		9E6C88291A5173753BC491B6 /* ProfileMenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileMenuView.swift; sourceTree = "<group>"; };
 		9F2072E61821AF26E120CDF4 /* WidgetTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetTheme.swift; sourceTree = "<group>"; };
+		9F3A53078B85EB061A970F1B /* SolPlayActivityLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SolPlayActivityLibrary.swift; sourceTree = "<group>"; };
 		A29B4ED94A8F6E5D7D0B761E /* GameScannerService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameScannerService.swift; sourceTree = "<group>"; };
 		A4480DF52C902338E47875FE /* SolEngineProcessService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SolEngineProcessService.swift; sourceTree = "<group>"; };
 		A5D42F0B77B89404DEC3C410 /* LauncherAppController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LauncherAppController.swift; sourceTree = "<group>"; };
 		A71B6488D581AB740E999319 /* LauncherViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LauncherViewModel.swift; sourceTree = "<group>"; };
 		A893C47257978D6EB72794BC /* DLSMGPUTimingAccumulator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DLSMGPUTimingAccumulator.swift; sourceTree = "<group>"; };
+		A9289BE8D5F081C071C3A035 /* SolLauncherAccessPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SolLauncherAccessPolicy.swift; sourceTree = "<group>"; };
 		A961C48D0FE8D4EE4FB57796 /* BackgroundShader.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = BackgroundShader.metal; sourceTree = "<group>"; };
 		A9DA0CFABA4BCBB69CCC2252 /* DLSMProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DLSMProcessor.swift; sourceTree = "<group>"; };
 		AB18C931600F48353FDDC824 /* ConsoleLine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConsoleLine.swift; sourceTree = "<group>"; };
 		AE6BB7212737BEE76F60D24C /* SolWidgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SolWidgets.swift; sourceTree = "<group>"; };
+		B1404193224D90FCF038E059 /* SolInlineKeyboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SolInlineKeyboardView.swift; sourceTree = "<group>"; };
 		B18E717394ADCFAEA80A169F /* GameCarouselView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameCarouselView.swift; sourceTree = "<group>"; };
 		B1B2FE88E9C65C092FF7E050 /* SolEngineDataMigrationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SolEngineDataMigrationService.swift; sourceTree = "<group>"; };
 		B30BECC27FF3250A9E8FEB6C /* RecentlyPlayedWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentlyPlayedWidget.swift; sourceTree = "<group>"; };
+		B51D830DC76E70F1A163B6C2 /* SolLaunchOptions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SolLaunchOptions.swift; sourceTree = "<group>"; };
 		B5D6320F761F6CB008D25704 /* DirectoryPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DirectoryPickerView.swift; sourceTree = "<group>"; };
 		B85D929DC8B97A60AB9174A8 /* ImageCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageCache.swift; sourceTree = "<group>"; };
+		B9777A5949989724955974C4 /* SolPixelAvatarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SolPixelAvatarView.swift; sourceTree = "<group>"; };
 		BA76FC8A1AEEA8C1BB6E0991 /* AppleAccountService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleAccountService.swift; sourceTree = "<group>"; };
 		C23332CB4CFBFD70FCB3A8C3 /* GamingModeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GamingModeService.swift; sourceTree = "<group>"; };
 		CF37D279EF96F0FE0D9D7F63 /* SolEngineSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SolEngineSettingsView.swift; sourceTree = "<group>"; };
+		D029FEC8CB925DDD4A60F4FA /* ProfileHubView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileHubView.swift; sourceTree = "<group>"; };
 		D200E4F084D0E8486598A2DB /* sol-temporal-v1.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "sol-temporal-v1.json"; sourceTree = "<group>"; };
 		D33FA670F70CEB75F7B4BBD0 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		D599C58008B8E366C4D7C220 /* SharedLauncherData+App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SharedLauncherData+App.swift"; sourceTree = "<group>"; };
@@ -243,10 +312,14 @@
 		E22711CC4EA5A88833898CE8 /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
 		E6F8492EC09B72A3D5F99FD5 /* SplashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplashView.swift; sourceTree = "<group>"; };
 		E940B7A30DA194CE82BDF791 /* GameLaunchOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameLaunchOverlayView.swift; sourceTree = "<group>"; };
+		EA581DF43F283BBA2AA42F24 /* SolCloudBackupCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SolCloudBackupCoordinator.swift; sourceTree = "<group>"; };
 		ED9FB1FB4A23251F8AE53277 /* ICloudProfileSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ICloudProfileSyncService.swift; sourceTree = "<group>"; };
 		EF46F346608715F0A373DA84 /* SolWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SolWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		F18348E81ABCC7D2CB8941B8 /* SolDLSMPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SolDLSMPipeline.swift; sourceTree = "<group>"; };
+		F1A87D6A842AB95C46E3480F /* SolFriendsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SolFriendsStore.swift; sourceTree = "<group>"; };
+		F32E5ECEDBBC404A48718487 /* ProfileFriendsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileFriendsView.swift; sourceTree = "<group>"; };
 		F902914D73DB8E3BAEC2A8E4 /* AmiiboPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmiiboPickerView.swift; sourceTree = "<group>"; };
+		FB0B2A1D0DD02D360DB0AD75 /* GameModsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameModsView.swift; sourceTree = "<group>"; };
 		FCBB07FD3F601538F76D4A64 /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
 		FECE299E677949C539A96448 /* LibraryBrowserView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryBrowserView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -257,6 +330,13 @@
 			buildActionMask = 2147483647;
 			files = (
 				705C8618AA50BCA6FF7AFF28 /* SolDLSM.framework in Frameworks */,
+				EE619684EE8ACE8CA4A0768D /* DockProgress in Frameworks */,
+				2586C7C2AB699DD1B67DEF8F /* ArgumentParser in Frameworks */,
+				E262FD95BF1D9DB7758AADE3 /* SemanticVersion in Frameworks */,
+				C2BF99B3F566BE34C36F8333 /* WhatsNewKit in Frameworks */,
+				2E47CD83BAB49F0290C6ADA7 /* Shimmer in Frameworks */,
+				1A9870746AFD9F58276A6276 /* Glur in Frameworks */,
+				D11E9A790F756532A57B69C8 /* ColorfulX in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -292,8 +372,14 @@
 				27D0FF1C32A7DC2A056A8A1E /* ControllerModels.swift */,
 				1820D2C562959887D415C8A2 /* ControllerNavigationAction.swift */,
 				6B2E38227F888F4485F891AF /* Game.swift */,
+				1927EFFF3EEA044C8FA68F0C /* SolCloudModels.swift */,
 				1994BE2A5F2F369549368524 /* SolEngineConfigurationOptions.swift */,
 				DEE078F7A542A06FCC9A47E1 /* SolEngineSession.swift */,
+				7D9974DAB1999F1E7F8EDD83 /* SolFriendsModels.swift */,
+				338175E8B30221D87B62C9B5 /* SolModModels.swift */,
+				1CEAEE824478C5792B47AF1A /* SolPixelAvatar.swift */,
+				7A792C80945EE7524D51DB18 /* SolPlayActivityModels.swift */,
+				82EB701952325E78A5754D89 /* SolSaveVaultModels.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -319,14 +405,27 @@
 				4792960B1F92A85412AAB25D /* GameCardView.swift */,
 				B18E717394ADCFAEA80A169F /* GameCarouselView.swift */,
 				E940B7A30DA194CE82BDF791 /* GameLaunchOverlayView.swift */,
+				FB0B2A1D0DD02D360DB0AD75 /* GameModsView.swift */,
 				5CA859AB9D5213F2FC95EBB1 /* LauncherSettingsView.swift */,
 				63FC2D38F0124E6FA4F82297 /* LauncherView.swift */,
 				FECE299E677949C539A96448 /* LibraryBrowserView.swift */,
 				143D3E2BF8E22749C4602551 /* MetalBackgroundView.swift */,
 				61189C0316DF85E92CF9389E /* MultiplayerSettingsView.swift */,
 				5B3062D954A68460BCDC6E76 /* NativeToolbarSearchField.swift */,
+				30EEC98CE6991A55D9E27F3E /* ProfileActivityView.swift */,
+				05DEBD67F807FBA26938867C /* ProfileCapturesView.swift */,
+				363AA5D2EEE40FEBAC2C7192 /* ProfileCloudView.swift */,
+				75FA24F09E141355B53CE241 /* ProfileEditorView.swift */,
+				F32E5ECEDBBC404A48718487 /* ProfileFriendsView.swift */,
+				4A706CAED2170EEB344C06EB /* ProfileGameUsersView.swift */,
+				D029FEC8CB925DDD4A60F4FA /* ProfileHubView.swift */,
 				9E6C88291A5173753BC491B6 /* ProfileMenuView.swift */,
+				6840AF9586516FADE4DF72AE /* ProfileOverviewView.swift */,
+				6F7C07435B44A4051838FFCB /* ProfileSaveVaultView.swift */,
+				766E1670D83E463C6563237C /* ProfileSocialListsView.swift */,
 				CF37D279EF96F0FE0D9D7F63 /* SolEngineSettingsView.swift */,
+				B1404193224D90FCF038E059 /* SolInlineKeyboardView.swift */,
+				B9777A5949989724955974C4 /* SolPixelAvatarView.swift */,
 				E6F8492EC09B72A3D5F99FD5 /* SplashView.swift */,
 				D33FA670F70CEB75F7B4BBD0 /* Theme.swift */,
 				160CCF01F1FA0B68D40D44CD /* ThumbnailView.swift */,
@@ -360,6 +459,8 @@
 				9DE7532A4CBE0D7809C5C19D /* NetworkInterfaceService.swift */,
 				E22711CC4EA5A88833898CE8 /* NotificationService.swift */,
 				57685CA6E829BD07569767AB /* SettingsStore.swift */,
+				EA581DF43F283BBA2AA42F24 /* SolCloudBackupCoordinator.swift */,
+				35FD3E8D1649FDA9D11FE836 /* SolCloudSyncService.swift */,
 				07C0EA3393731C8F4D52864B /* SolEngineBackendService.swift */,
 				2FA375FBF3D67A75DF019ADF /* SolEngineConfigurationStore.swift */,
 				B1B2FE88E9C65C092FF7E050 /* SolEngineDataMigrationService.swift */,
@@ -368,6 +469,13 @@
 				D7F51509A6F0B6C43F6FE4A2 /* SolEngineNativeBridge.swift */,
 				3B024CC825CDE671800EF842 /* SolEnginePathResolver.swift */,
 				A4480DF52C902338E47875FE /* SolEngineProcessService.swift */,
+				F1A87D6A842AB95C46E3480F /* SolFriendsStore.swift */,
+				98440A4963C3538021BCF8BA /* SolModManager.swift */,
+				292953628ACD69F78C0940C7 /* SolPixelAvatarRenderer.swift */,
+				9F3A53078B85EB061A970F1B /* SolPlayActivityLibrary.swift */,
+				0B1B59923665EFE84ED6FBB1 /* SolProfileImageStore.swift */,
+				72FCF2E199DFB44813AA0A71 /* SolSaveVaultService.swift */,
+				4FF1EE20CC9C24D1645DBFC3 /* SolScreenshotLibrary.swift */,
 				6F504D272378BA99848B1119 /* SoundPlayer.swift */,
 				47B25D2FD4A489E36F6BCD21 /* SpotlightIndexService.swift */,
 				4959B37FF0373FF935F9CE7E /* StatusBarController.swift */,
@@ -429,6 +537,7 @@
 				76D87B6509DAB2C17F2E87A5 /* SolApp.swift */,
 				47E90055B5FF774C3FCDC647 /* Metal */,
 				4DB443660B018343827FBC72 /* Models */,
+				E69C6549C840974EBE038DE1 /* Onboarding */,
 				6FC9BDDF5F863CBE9D9700E3 /* Services */,
 				671A34AC419D29F0FE57DB2F /* Shared */,
 				A5E966B465B5ED76F844514E /* ViewModels */,
@@ -464,6 +573,18 @@
 			);
 			name = SolDLSM;
 			path = Sources/SolDLSM;
+			sourceTree = "<group>";
+		};
+		E69C6549C840974EBE038DE1 /* Onboarding */ = {
+			isa = PBXGroup;
+			children = (
+				A9289BE8D5F081C071C3A035 /* SolLauncherAccessPolicy.swift */,
+				B51D830DC76E70F1A163B6C2 /* SolLaunchOptions.swift */,
+				44900815561BC4F02BAE0426 /* SolOnboardingStore.swift */,
+				52F3698D03C3350CF3F1F554 /* SolOnboardingView.swift */,
+				5874951F51AA84EFA270BDC7 /* SolWhatsNew.swift */,
+			);
+			path = Onboarding;
 			sourceTree = "<group>";
 		};
 		F2A947E196DA0503F2DEFCDE /* SolQuickLook */ = {
@@ -534,6 +655,13 @@
 			);
 			name = Sol;
 			packageProductDependencies = (
+				172CC25DD96553782FAE1653 /* DockProgress */,
+				6C8450425BD291C96732F9FA /* ArgumentParser */,
+				6E44B5B97ED3700F72F0A9D5 /* SemanticVersion */,
+				F94CF31AEECB60F95F5B71EA /* WhatsNewKit */,
+				D988B0EC2A032D2C8DC90D9C /* Shimmer */,
+				F0BA9A2907B727AE9BA235F5 /* Glur */,
+				594C9E2441C36882D1A841DD /* ColorfulX */,
 			);
 			productName = Sol;
 			productReference = 12048DD4C44A4AC422790774 /* Sol.app */;
@@ -608,6 +736,15 @@
 			);
 			mainGroup = 1888F8EF073AF1AB5E1D363F;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				D7EF84D7830EC7CA334BFE3B /* XCRemoteSwiftPackageReference "swift-argument-parser" */,
+				6EE25922F5613DC3B7A75F06 /* XCRemoteSwiftPackageReference "ColorfulX" */,
+				19147104FCBCDDC866FC11F0 /* XCRemoteSwiftPackageReference "DockProgress" */,
+				204FC5855B69D5D7F5118330 /* XCRemoteSwiftPackageReference "Glur" */,
+				859793306606C8E018BD4708 /* XCRemoteSwiftPackageReference "SemanticVersion" */,
+				642DF0F36746ECDC104F955F /* XCRemoteSwiftPackageReference "SwiftUI-Shimmer" */,
+				4900302DA129BD2266E2C0C1 /* XCRemoteSwiftPackageReference "WhatsNewKit" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = C1BD183D86CFA55EA61F9B3B /* Products */;
 			projectDirPath = "";
@@ -707,6 +844,7 @@
 				D69108059E283B2EAA00659D /* GameCardView.swift in Sources */,
 				D1467CED80FE4BD0B9AD2BF5 /* GameCarouselView.swift in Sources */,
 				FE3CC1D2CBA49DD8F15B2B36 /* GameLaunchOverlayView.swift in Sources */,
+				F1AB0C433E397A5264A7EF05 /* GameModsView.swift in Sources */,
 				4569B495A6CF572BE2AFD361 /* GameScannerService.swift in Sources */,
 				F7A6CD989779BB100843B9DD /* GamingModeService.swift in Sources */,
 				684280B7BB8D2693DEC864D2 /* GitHubUpdateService.swift in Sources */,
@@ -724,11 +862,24 @@
 				603AD59060F874561F27167A /* NativeToolbarSearchField.swift in Sources */,
 				C303C2394C4D906D4293D75F /* NetworkInterfaceService.swift in Sources */,
 				06D978A769DC1C35AE0771A5 /* NotificationService.swift in Sources */,
+				A60342A373F3BEE7F63E305F /* ProfileActivityView.swift in Sources */,
+				9F87DEA6BBCD5AECF3210B11 /* ProfileCapturesView.swift in Sources */,
+				39173799F5E39E7D84E30138 /* ProfileCloudView.swift in Sources */,
+				BFA5DEDF344537DFA5C185D8 /* ProfileEditorView.swift in Sources */,
+				619F5AB5EC7A294F568BCB9B /* ProfileFriendsView.swift in Sources */,
+				9584ACA272A3D718B288009B /* ProfileGameUsersView.swift in Sources */,
+				2BC6A56EF3BAFCDC59D97676 /* ProfileHubView.swift in Sources */,
 				46D9EBE801004937322CE3C6 /* ProfileMenuView.swift in Sources */,
+				43F8D8207EB6C6C8609C957F /* ProfileOverviewView.swift in Sources */,
+				B8E8FAADCA9A1E1552CA0F26 /* ProfileSaveVaultView.swift in Sources */,
+				433D160EC648BE535448FFA2 /* ProfileSocialListsView.swift in Sources */,
 				DBDBCE02E06E443C12E44EC3 /* SettingsStore.swift in Sources */,
 				157CB51B2BEE355C4A19761F /* SharedLauncherData+App.swift in Sources */,
 				A70D844A2804DC5037DBBB6A /* SharedLauncherData.swift in Sources */,
 				36FEA7DF1A4AD4708E020134 /* SolApp.swift in Sources */,
+				62B66622735B65F2440A7EAA /* SolCloudBackupCoordinator.swift in Sources */,
+				2959467D050BF60041F418F2 /* SolCloudModels.swift in Sources */,
+				9D45139BC96F8C3A508A0100 /* SolCloudSyncService.swift in Sources */,
 				F860C614FE22C6D6D3D93642 /* SolEngineBackendService.swift in Sources */,
 				44E0BC07C75C224D0720C4A9 /* SolEngineConfigurationOptions.swift in Sources */,
 				333B0EB3CA1ACC0FF5D45264 /* SolEngineConfigurationStore.swift in Sources */,
@@ -740,6 +891,25 @@
 				97950E2F634BCF3360DD9188 /* SolEngineProcessService.swift in Sources */,
 				2C55EF2F6674D9C1E426672D /* SolEngineSession.swift in Sources */,
 				77E3059E4AFCBDCF05404BD6 /* SolEngineSettingsView.swift in Sources */,
+				3CCDDD3E0C2EEE051BBBBE0A /* SolFriendsModels.swift in Sources */,
+				D6087432E46DBF93FE0EFD2E /* SolFriendsStore.swift in Sources */,
+				D54027DF7DD4C042EB42C500 /* SolInlineKeyboardView.swift in Sources */,
+				D9F486E53E2F49B7D02E5025 /* SolLaunchOptions.swift in Sources */,
+				F25D86AA2A76805BB977836C /* SolLauncherAccessPolicy.swift in Sources */,
+				A9BB654A4FBB3DA1A85A3682 /* SolModManager.swift in Sources */,
+				DB4F135A0D5339A97870EFFB /* SolModModels.swift in Sources */,
+				E8F6CD80426000F9C15AD6F9 /* SolOnboardingStore.swift in Sources */,
+				39C3A1BFD3DB8B919B457528 /* SolOnboardingView.swift in Sources */,
+				31FD3F13FC0C0191BA084C76 /* SolPixelAvatar.swift in Sources */,
+				D6E18C325B08102708F51FC5 /* SolPixelAvatarRenderer.swift in Sources */,
+				DBAEFC232A59B6460154B0F0 /* SolPixelAvatarView.swift in Sources */,
+				6FCF9EB54D7D30524540594E /* SolPlayActivityLibrary.swift in Sources */,
+				C50DC882800458B0E24BABC4 /* SolPlayActivityModels.swift in Sources */,
+				C5E846A4C61E3D559E159BD3 /* SolProfileImageStore.swift in Sources */,
+				D113F2BCD43734651387EBBE /* SolSaveVaultModels.swift in Sources */,
+				21D102A9C7A26E40314D2B46 /* SolSaveVaultService.swift in Sources */,
+				9838714A43B8AEE72831A82F /* SolScreenshotLibrary.swift in Sources */,
+				42083AA721BE9EDCD19A441E /* SolWhatsNew.swift in Sources */,
 				DB8CE6AF497067CA71635402 /* SoundPlayer.swift in Sources */,
 				A7CD35F41B7FF91CC3E7B9D0 /* SplashView.swift in Sources */,
 				48F728F4F1A7E1DA09BF89DD /* SpotlightIndexService.swift in Sources */,
@@ -1366,6 +1536,103 @@
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		19147104FCBCDDC866FC11F0 /* XCRemoteSwiftPackageReference "DockProgress" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sindresorhus/DockProgress.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 5.1.0;
+			};
+		};
+		204FC5855B69D5D7F5118330 /* XCRemoteSwiftPackageReference "Glur" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/joogps/Glur.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.1.0;
+			};
+		};
+		4900302DA129BD2266E2C0C1 /* XCRemoteSwiftPackageReference "WhatsNewKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/SvenTiigi/WhatsNewKit.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.2.1;
+			};
+		};
+		642DF0F36746ECDC104F955F /* XCRemoteSwiftPackageReference "SwiftUI-Shimmer" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/markiv/SwiftUI-Shimmer.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.5.1;
+			};
+		};
+		6EE25922F5613DC3B7A75F06 /* XCRemoteSwiftPackageReference "ColorfulX" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/Lakr233/ColorfulX.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 6.1.0;
+			};
+		};
+		859793306606C8E018BD4708 /* XCRemoteSwiftPackageReference "SemanticVersion" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/SwiftPackageIndex/SemanticVersion.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.5.3;
+			};
+		};
+		D7EF84D7830EC7CA334BFE3B /* XCRemoteSwiftPackageReference "swift-argument-parser" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/apple/swift-argument-parser.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.8.2;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		172CC25DD96553782FAE1653 /* DockProgress */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 19147104FCBCDDC866FC11F0 /* XCRemoteSwiftPackageReference "DockProgress" */;
+			productName = DockProgress;
+		};
+		594C9E2441C36882D1A841DD /* ColorfulX */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 6EE25922F5613DC3B7A75F06 /* XCRemoteSwiftPackageReference "ColorfulX" */;
+			productName = ColorfulX;
+		};
+		6C8450425BD291C96732F9FA /* ArgumentParser */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D7EF84D7830EC7CA334BFE3B /* XCRemoteSwiftPackageReference "swift-argument-parser" */;
+			productName = ArgumentParser;
+		};
+		6E44B5B97ED3700F72F0A9D5 /* SemanticVersion */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 859793306606C8E018BD4708 /* XCRemoteSwiftPackageReference "SemanticVersion" */;
+			productName = SemanticVersion;
+		};
+		D988B0EC2A032D2C8DC90D9C /* Shimmer */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 642DF0F36746ECDC104F955F /* XCRemoteSwiftPackageReference "SwiftUI-Shimmer" */;
+			productName = Shimmer;
+		};
+		F0BA9A2907B727AE9BA235F5 /* Glur */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 204FC5855B69D5D7F5118330 /* XCRemoteSwiftPackageReference "Glur" */;
+			productName = Glur;
+		};
+		F94CF31AEECB60F95F5B71EA /* WhatsNewKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 4900302DA129BD2266E2C0C1 /* XCRemoteSwiftPackageReference "WhatsNewKit" */;
+			productName = WhatsNewKit;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 09E1527457CD5DD309EC955F /* Project object */;
 }

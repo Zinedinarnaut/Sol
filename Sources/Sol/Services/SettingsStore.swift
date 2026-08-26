@@ -3,6 +3,15 @@ import Combine
 import ServiceManagement
 import SolDLSM
 
+struct SolPortableLauncherSettings: Codable, Equatable, Sendable {
+    static let currentSchemaVersion = 1
+
+    let schemaVersion: Int
+    let dlsmMode: String
+    let dlsmQuality: String
+    let dlsmFrameGeneration: Bool
+}
+
 final class SettingsStore: ObservableObject {
     private static let minimumBackgroundCacheVersion = 2
     private static let backgroundArtworkQualitySchema = 1
@@ -157,6 +166,39 @@ final class SettingsStore: ObservableObject {
 
     func bumpBackgroundCacheVersion() {
         backgroundCacheVersion &+= 1
+    }
+
+    func cloudSnapshotData() -> Data? {
+        let snapshot = SolPortableLauncherSettings(
+            schemaVersion: SolPortableLauncherSettings.currentSchemaVersion,
+            dlsmMode: dlsmMode.rawValue,
+            dlsmQuality: dlsmQuality.rawValue,
+            dlsmFrameGeneration: dlsmFrameGeneration
+        )
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        return try? encoder.encode(snapshot)
+    }
+
+    func applyCloudSnapshotData(_ data: Data) {
+        guard let snapshot = try? JSONDecoder().decode(
+            SolPortableLauncherSettings.self,
+            from: data
+        ),
+              snapshot.schemaVersion == SolPortableLauncherSettings.currentSchemaVersion,
+              let mode = DLSMMode(rawValue: snapshot.dlsmMode),
+              let quality = DLSMQuality(rawValue: snapshot.dlsmQuality) else {
+            return
+        }
+
+        let resolved = DLSMConfiguration(
+            mode: mode,
+            quality: quality,
+            frameGeneration: snapshot.dlsmFrameGeneration
+        ).resolved(for: .current)
+        dlsmMode = resolved.mode
+        dlsmQuality = resolved.quality
+        dlsmFrameGeneration = resolved.frameGeneration
     }
 
     static func resolvedBackgroundCacheVersion(

@@ -73,11 +73,84 @@ final class SolEngineBackendServiceTests: XCTestCase, @unchecked Sendable {
                 "Player2",
             ]
         )
+        let tuning = SolEngineControllerTuning(
+            deadzoneLeft: 0.12,
+            deadzoneRight: 0.14,
+            rangeLeft: 1,
+            rangeRight: 0.95,
+            triggerThreshold: 0.35,
+            motionEnabled: true,
+            motionSensitivity: 125,
+            gyroDeadzone: 0.8,
+            rumbleEnabled: true,
+            strongRumble: 0.9,
+            weakRumble: 0.7,
+            hdRumble: true,
+            ledEnabled: true,
+            ledOff: false,
+            ledRainbow: false,
+            ledColor: 0x123456
+        )
+        let tuningArguments = SolEngineBackendOperation.setInputTuning(
+            tuning,
+            player: .player1
+        ).arguments
+        XCTAssertEqual(tuningArguments.first, "--native-set-input-tuning")
+        XCTAssertEqual(value(after: "--native-player", in: tuningArguments), "Player1")
+        XCTAssertEqual(value(after: "--deadzone-left", in: tuningArguments), "0.12")
+        XCTAssertEqual(value(after: "--motion-sensitivity", in: tuningArguments), "125")
+        XCTAssertEqual(value(after: "--led-color", in: tuningArguments), "1193046")
+        XCTAssertEqual(
+            SolEngineBackendOperation.testInputRumble(player: .player3).arguments,
+            ["--native-test-input-rumble", "--native-player", "Player3"]
+        )
         XCTAssertEqual(SolEngineBackendOperation.scanContent.arguments, ["--native-scan-content"])
         XCTAssertEqual(SolEngineBackendOperation.listProfiles.arguments, ["--native-list-profiles"])
         XCTAssertEqual(
             SolEngineBackendOperation.setProfile("profile-id").arguments,
             ["--native-set-profile", "profile-id"]
         )
+        XCTAssertEqual(
+            SolEngineBackendOperation.createProfile(
+                name: "Player Two",
+                imageBase64: "AQID"
+            ).arguments,
+            [
+                "--native-create-profile", "Player Two",
+                "--native-profile-image-base64", "AQID",
+            ]
+        )
+        XCTAssertEqual(
+            SolEngineBackendOperation.renameProfile(
+                id: "profile-id",
+                name: "Renamed"
+            ).arguments,
+            [
+                "--native-rename-profile", "profile-id",
+                "--native-profile-name", "Renamed",
+            ]
+        )
+        XCTAssertEqual(
+            SolEngineBackendOperation.deleteProfile(id: "profile-id").arguments,
+            ["--native-delete-profile", "profile-id"]
+        )
+        XCTAssertEqual(
+            SolEngineBackendOperation.setProfileImage(
+                id: "profile-id",
+                imageBase64: "AQID"
+            ).arguments,
+            [
+                "--native-set-profile-image", "profile-id",
+                "--native-profile-image-base64", "AQID",
+            ]
+        )
+    }
+
+    private func value(after flag: String, in arguments: [String]) -> String? {
+        guard let index = arguments.firstIndex(of: flag),
+              arguments.indices.contains(index + 1) else {
+            return nil
+        }
+        return arguments[index + 1]
     }
 }

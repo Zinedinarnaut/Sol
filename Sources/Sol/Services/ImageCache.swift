@@ -12,7 +12,14 @@ final class ImageCache: @unchecked Sendable {
     private let lock = NSLock()
     private var scaledKeysByBaseKey: [String: Set<NSString>] = [:]
 
+    private static let memoryCostLimit = 96 * 1_024 * 1_024
+    private static let memoryCountLimit = 128
+
     private init() {
+        memoryCache.totalCostLimit = Self.memoryCostLimit
+        memoryCache.countLimit = Self.memoryCountLimit
+        memoryCache.evictsObjectsWithDiscardedContent = true
+
         let base = fileManager.urls(for: .cachesDirectory, in: .userDomainMask).first
         let dir = base?.appendingPathComponent("Sol/Covers", isDirectory: true)
             ?? URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("Sol/Covers", isDirectory: true)
@@ -42,7 +49,11 @@ final class ImageCache: @unchecked Sendable {
             }
             for (data, ext) in cachedDataCandidates(forKey: key) {
                 if let image = NSImage(data: data) {
-                    memoryCache.setObject(image, forKey: key as NSString)
+                    memoryCache.setObject(
+                        image,
+                        forKey: key as NSString,
+                        cost: Self.decodedCost(of: image)
+                    )
                     SharedThumbnailStore.shared.store(data: data, key: key, fileExtension: ext)
                     return image
                 }
@@ -61,7 +72,11 @@ final class ImageCache: @unchecked Sendable {
                   let thumbnail = Self.createThumbnail(from: data, maxPixelSize: maxPixelSize) else {
                 return nil
             }
-            memoryCache.setObject(thumbnail, forKey: cacheKey)
+            memoryCache.setObject(
+                thumbnail,
+                forKey: cacheKey,
+                cost: Self.decodedCost(of: thumbnail)
+            )
             scaledKeysByBaseKey[key, default: []].insert(cacheKey)
             return thumbnail
         }
@@ -81,16 +96,34 @@ final class ImageCache: @unchecked Sendable {
     }
 
     @discardableResult
-    func store(data: Data, forKey key: String, fileExtension: String) -> NSImage? {
+    func store(
+        data: Data,
+        forKey key: String,
+        fileExtension: String,
+        memoryMaxPixelSize: Int? = nil
+    ) -> NSImage? {
         synchronized {
-            guard let image = NSImage(data: data) else { return nil }
+            let image: NSImage?
+            if let memoryMaxPixelSize {
+                image = Self.createThumbnail(
+                    from: data,
+                    maxPixelSize: memoryMaxPixelSize
+                )
+            } else {
+                image = NSImage(data: data)
+            }
+            guard let image else { return nil }
             let safeExtension = Self.sanitizedExtension(fileExtension)
             let fileURL = cacheFileURL(forKey: key, fileExtension: safeExtension)
             do {
                 removeMemoryEntries(forKey: key)
                 removeDiskEntries(forKey: key)
                 try data.write(to: fileURL, options: .atomic)
-                memoryCache.setObject(image, forKey: key as NSString)
+                memoryCache.setObject(
+                    image,
+                    forKey: key as NSString,
+                    cost: Self.decodedCost(of: image)
+                )
                 return image
             } catch {
                 return nil
@@ -110,6 +143,16 @@ final class ImageCache: @unchecked Sendable {
             } catch {
                 return
             }
+        }
+    }
+
+    /// Drops decoded artwork while keeping the on-disk cache intact. Sol uses
+    /// this at the gameplay boundary so launcher artwork never competes with
+    /// the emulation renderer for unified memory.
+    func trimMemory() {
+        synchronized {
+            memoryCache.removeAllObjects()
+            scaledKeysByBaseKey.removeAll(keepingCapacity: false)
         }
     }
 
@@ -183,5 +226,20 @@ final class ImageCache: @unchecked Sendable {
             return nil
         }
         return NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
+    }
+
+    private static func decodedCost(of image: NSImage) -> Int {
+        let largestPixelCount = image.representations.reduce(0) { current, representation in
+            max(current, representation.pixelsWide * representation.pixelsHigh)
+        }
+        if largestPixelCount > 0 {
+            return largestPixelCount * 4
+        }
+
+        let scale: CGFloat = 2
+        return max(
+            1,
+            Int(image.size.width * scale) * Int(image.size.height * scale) * 4
+        )
     }
 }

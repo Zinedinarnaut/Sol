@@ -133,8 +133,15 @@ enum SolEngineBackendOperation {
         player: SolEnginePlayerIndex
     )
     case resetInputBindings(player: SolEnginePlayerIndex)
+    case setInputTuning(SolEngineControllerTuning, player: SolEnginePlayerIndex)
+    case testInputRumble(player: SolEnginePlayerIndex)
     case listProfiles
     case setProfile(String)
+    case createProfile(name: String, imageBase64: String?)
+    case renameProfile(id: String, name: String)
+    case deleteProfile(id: String)
+    case setProfileImage(id: String, imageBase64: String)
+    case solMetalStatus
 
     var arguments: [String] {
         switch self {
@@ -172,10 +179,57 @@ enum SolEngineBackendOperation {
                 "--native-player",
                 player.rawValue,
             ]
+        case .setInputTuning(let tuning, let player):
+            return [
+                "--native-set-input-tuning",
+                "--native-player", player.rawValue,
+                "--deadzone-left", String(tuning.deadzoneLeft),
+                "--deadzone-right", String(tuning.deadzoneRight),
+                "--range-left", String(tuning.rangeLeft),
+                "--range-right", String(tuning.rangeRight),
+                "--trigger-threshold", String(tuning.triggerThreshold),
+                "--motion-enabled", String(tuning.motionEnabled),
+                "--motion-sensitivity", String(tuning.motionSensitivity),
+                "--gyro-deadzone", String(tuning.gyroDeadzone),
+                "--rumble-enabled", String(tuning.rumbleEnabled),
+                "--strong-rumble", String(tuning.strongRumble),
+                "--weak-rumble", String(tuning.weakRumble),
+                "--hd-rumble", String(tuning.hdRumble),
+                "--led-enabled", String(tuning.ledEnabled),
+                "--led-off", String(tuning.ledOff),
+                "--led-rainbow", String(tuning.ledRainbow),
+                "--led-color", String(tuning.ledColor),
+            ]
+        case .testInputRumble(let player):
+            return [
+                "--native-test-input-rumble",
+                "--native-player",
+                player.rawValue,
+            ]
         case .listProfiles:
             return ["--native-list-profiles"]
         case .setProfile(let profileID):
             return ["--native-set-profile", profileID]
+        case .createProfile(let name, let imageBase64):
+            var arguments = ["--native-create-profile", name]
+            if let imageBase64 {
+                arguments += ["--native-profile-image-base64", imageBase64]
+            }
+            return arguments
+        case .renameProfile(let id, let name):
+            return [
+                "--native-rename-profile", id,
+                "--native-profile-name", name,
+            ]
+        case .deleteProfile(let id):
+            return ["--native-delete-profile", id]
+        case .setProfileImage(let id, let imageBase64):
+            return [
+                "--native-set-profile-image", id,
+                "--native-profile-image-base64", imageBase64,
+            ]
+        case .solMetalStatus:
+            return ["--native-solmetal-status"]
         }
     }
 

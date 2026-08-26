@@ -1,0 +1,96 @@
+{
+  "originHash" : "1b61268d2c3bf25e400adbc33917d8911062962d71d08381db9a017b4b60cc0f",
+  "pins" : [
+    {
+      "identity" : "colorfulx",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/Lakr233/ColorfulX.git",
+      "state" : {
+        "revision" : "bdf19698a9fdd3d2cd3ade4a9434d443b4313b36",
+        "version" : "6.1.0"
+      }
+    },
+    {
+      "identity" : "colorvector",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/Lakr233/ColorVector.git",
+      "state" : {
+        "revision" : "0cd0169f1487d7371ee3fd7fe93f1e918fd93d00",
+        "version" : "1.0.5"
+      }
+    },
+    {
+      "identity" : "dockprogress",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/sindresorhus/DockProgress.git",
+      "state" : {
+        "revision" : "43ca0137201a479fbd891b129155f4a84c1e1b13",
+        "version" : "5.1.0"
+      }
+    },
+    {
+      "identity" : "glur",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/joogps/Glur.git",
+      "state" : {
+        "revision" : "178af6499ed7957c7f91187fdee2b09d322f5b87",
+        "version" : "1.1.0"
+      }
+    },
+    {
+      "identity" : "msdisplaylink",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/Lakr233/MSDisplayLink.git",
+      "state" : {
+        "revision" : "1ba3e769b734e456317fa7e45321fa7f53eefb67",
+        "version" : "2.1.0"
+      }
+    },
+    {
+      "identity" : "semanticversion",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/SwiftPackageIndex/SemanticVersion.git",
+      "state" : {
+        "revision" : "330bab3e41aad91fb3b1b0f779d1325738e54b93",
+        "version" : "0.5.3"
+      }
+    },
+    {
+      "identity" : "springinterpolation",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/Lakr233/SpringInterpolation.git",
+      "state" : {
+        "revision" : "cdb556516daa9b43c16aae9436dd39e19ff930fd",
+        "version" : "1.4.0"
+      }
+    },
+    {
+      "identity" : "swift-argument-parser",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-argument-parser.git",
+      "state" : {
+        "revision" : "6a52f3251125d74daf04fcbd5e6f08a75d074382",
+        "version" : "1.8.2"
+      }
+    },
+    {
+      "identity" : "swiftui-shimmer",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/markiv/SwiftUI-Shimmer.git",
+      "state" : {
+        "revision" : "0226e21f9bf355d40e07e5f5e1c33679d50e167f",
+        "version" : "1.5.1"
+      }
+    },
+    {
+      "identity" : "whatsnewkit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/SvenTiigi/WhatsNewKit.git",
+      "state" : {
+        "revision" : "6157c77e8be9b3d2310bc680681b61a8d9e290ac",
+        "version" : "2.2.1"
+      }
+    }
+  ],
+  "version" : 3
+}

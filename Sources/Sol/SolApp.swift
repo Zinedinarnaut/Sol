@@ -1,24 +1,34 @@
 import SwiftUI
 import AppKit
+import WhatsNewKit
 
 @main
 struct SolApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var viewModel = LauncherViewModel()
     @StateObject private var controllerViewModel = ControllerManagerViewModel()
+    @StateObject private var friendsStore = SolFriendsStore()
+    @StateObject private var onboardingStore = SolOnboardingStore()
 
     var body: some Scene {
         Window("Sol", id: "main") {
-            RootView(viewModel: viewModel, controllerViewModel: controllerViewModel)
+            RootView(
+                viewModel: viewModel,
+                controllerViewModel: controllerViewModel,
+                friendsStore: friendsStore,
+                onboardingStore: onboardingStore
+            )
         }
         .windowToolbarStyle(.unified)
         .commands {
+            SolSettingsCommands()
+
             CommandMenu("Emulation") {
                 Button("Launch Selected Game") {
                     viewModel.launchSelectedGame()
                 }
                 .keyboardShortcut(.return, modifiers: [.command])
-                .disabled(!viewModel.canLaunch)
+                .disabled(!viewModel.isLauncherInteractionEnabled || !viewModel.canLaunch)
 
                 Button("Stop Emulation") {
                     viewModel.stopLaunch()
@@ -52,46 +62,112 @@ struct SolApp: App {
                     viewModel.rescan()
                 }
                 .keyboardShortcut("r", modifiers: [.command])
-                .disabled(viewModel.isScanning || viewModel.isLaunching)
+                .disabled(
+                    !viewModel.isLauncherInteractionEnabled ||
+                    viewModel.isScanning ||
+                    viewModel.isLaunching
+                )
             }
         }
 
-        Settings {
+        Window("Settings", id: "settings") {
             LauncherSettingsView(
                 viewModel: viewModel,
-                controllerViewModel: controllerViewModel
+                controllerViewModel: controllerViewModel,
+                friendsStore: friendsStore,
+                onboardingStore: onboardingStore
             )
+        }
+        .windowToolbarStyle(.unifiedCompact)
+        .windowResizability(.contentMinSize)
+        .defaultSize(width: 1_020, height: 720)
+        .defaultLaunchBehavior(.suppressed)
+        .restorationBehavior(.disabled)
+    }
+}
+
+private struct SolSettingsCommands: Commands {
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some Commands {
+        CommandGroup(replacing: .appSettings) {
+            Button("Settings…") {
+                openWindow(id: "settings")
+            }
+            .keyboardShortcut(",", modifiers: [.command])
         }
     }
 }
 
 struct RootView: View {
     @ObservedObject var viewModel: LauncherViewModel
-    @ObservedObject var controllerViewModel: ControllerManagerViewModel
-    @Environment(\.openSettings) private var openSettings
+    // RootView only sends commands to this object; it does not render any of
+    // its published controller snapshots. Keeping it as a plain reference
+    // prevents 12.5 Hz input polling from invalidating the entire launcher.
+    let controllerViewModel: ControllerManagerViewModel
+    @ObservedObject var friendsStore: SolFriendsStore
+    @ObservedObject var onboardingStore: SolOnboardingStore
+    @Environment(\.openWindow) private var openWindow
     @State private var showSplash = true
     @State private var window: NSWindow?
+    @State private var whatsNew: WhatsNew?
+    @State private var shouldOfferWhatsNew = false
 
     var body: some View {
         ZStack {
-            Theme.background.ignoresSafeArea()
+            Group {
+                if viewModel.isLaunching {
+                    Color.black
+                } else {
+                    Theme.background
+                }
+            }
+            .ignoresSafeArea()
 
             if showSplash {
                 SplashView()
                     .transition(.opacity.combined(with: .scale))
+            } else if !onboardingStore.isCompleted {
+                SolOnboardingView(
+                    viewModel: viewModel,
+                    store: onboardingStore,
+                    friendsStore: friendsStore
+                )
+                    .transition(.opacity.combined(with: .scale(scale: 0.985)))
             } else {
-                LauncherView(viewModel: viewModel, controllerViewModel: controllerViewModel)
+                LauncherView(
+                    viewModel: viewModel,
+                    friendsStore: friendsStore
+                )
                     .transition(.opacity.combined(with: .scale))
             }
         }
+        // During gameplay the CAMetalLayer must be proposed the complete
+        // display size, including the horizontal display-cutout safe area.
+        // Controls still apply their own padding inside LauncherView.
+        .ignoresSafeArea(
+            .container,
+            edges: viewModel.isLaunching ? .all : []
+        )
         .onAppear {
+            shouldOfferWhatsNew = onboardingStore.isCompleted
+            synchronizeLauncherInteraction()
             LauncherAppController.shared.attach(viewModel: viewModel)
+            friendsStore.onPersistedChange = { [weak viewModel] in
+                viewModel?.profileDataDidChange()
+            }
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
                 withAnimation(.easeInOut(duration: 0.6)) {
                     showSplash = false
                 }
+                guard shouldOfferWhatsNew else { return }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
+                    whatsNew = SolWhatsNew.current
+                }
             }
             controllerViewModel.onNavigate = { action in
+                guard viewModel.isLauncherInteractionEnabled,
+                      !viewModel.isLaunchIsolationActive else { return }
                 switch action {
                 case .next:
                     viewModel.selectNextGame()
@@ -105,26 +181,80 @@ struct RootView: View {
             }
         }
         .onOpenURL { url in
-            viewModel.handleDeepLink(url)
+            LauncherAppController.shared.open(url: url)
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             viewModel.reconcileEmulationState()
         }
-        .onChange(of: viewModel.isLaunchIsolationActive) { _, newValue in
-            controllerViewModel.setPollingEnabled(!newValue)
+        .onReceive(viewModel.$backendProfiles) { profiles in
+            guard let activeProfile = profiles.first(where: \.isDefault)
+                    ?? profiles.first else {
+                return
+            }
+            friendsStore.synchronizeActiveGameUser(
+                displayName: activeProfile.name
+            )
+        }
+        .onChange(of: viewModel.isLaunchIsolationActive) { _, _ in
+            synchronizeLauncherInteraction()
         }
         .onChange(of: viewModel.isSettingsPresented) { _, isPresented in
             guard isPresented else { return }
-            openSettings()
+            openWindow(id: "settings")
             viewModel.isSettingsPresented = false
         }
         .onChange(of: viewModel.isLaunching, initial: true) { _, isLaunching in
             controllerViewModel.setEmulationActive(isLaunching)
             updateWindowTitle()
+            if !isLaunching {
+                LauncherAppController.shared
+                    .launcherInteractionDidBecomeAvailable()
+            }
         }
         .onChange(of: viewModel.session.title) { _, _ in
             updateWindowTitle()
         }
+        .onChange(of: viewModel.cloudSync.lastRestoreID) { _, _ in
+            friendsStore.reload()
+        }
+        .onChange(of: onboardingStore.isCompleted) { _, completed in
+            synchronizeLauncherInteraction()
+            LauncherAppController.shared
+                .launcherInteractionDidBecomeAvailable()
+            guard completed else { return }
+            updateWindowTitle()
+            viewModel.reconcileEmulationState()
+        }
+        .onChange(of: viewModel.games.map(\.id)) { _, _ in
+            LauncherAppController.shared
+                .launcherInteractionDidBecomeAvailable()
+        }
+        .onChange(of: viewModel.isScanning) { _, isScanning in
+            guard !isScanning else { return }
+            LauncherAppController.shared
+                .launcherInteractionDidBecomeAvailable()
+        }
+        .onChange(of: viewModel.solEngineValidation.isValid) { _, isValid in
+            guard isValid else { return }
+            LauncherAppController.shared
+                .launcherInteractionDidBecomeAvailable()
+        }
+        .onChange(of: viewModel.gamesValidation.isValid) { _, isValid in
+            guard isValid else { return }
+            LauncherAppController.shared
+                .launcherInteractionDidBecomeAvailable()
+        }
+        .onChange(of: showSplash) { _, isVisible in
+            synchronizeLauncherInteraction()
+            if !isVisible {
+                LauncherAppController.shared
+                    .launcherInteractionDidBecomeAvailable()
+            }
+        }
+        .sheet(
+            whatsNew: $whatsNew,
+            versionStore: UserDefaultsWhatsNewVersionStore()
+        )
         .background(
             WindowAccessor(
                 window: $window,
@@ -154,6 +284,21 @@ struct RootView: View {
         } else {
             window.title = "Sol"
         }
+    }
+
+    private func synchronizeLauncherInteraction() {
+        let launcherEnabled = SolLauncherAccessPolicy.allowsLauncherInteraction(
+            setupCompleted: onboardingStore.isCompleted,
+            splashVisible: showSplash
+        )
+        viewModel.setLauncherInteractionEnabled(launcherEnabled)
+        controllerViewModel.setPollingEnabled(
+            SolLauncherAccessPolicy.allowsControllerNavigation(
+                setupCompleted: onboardingStore.isCompleted,
+                splashVisible: showSplash,
+                launchIsolationActive: viewModel.isLaunchIsolationActive
+            )
+        )
     }
 }
 
@@ -260,9 +405,6 @@ final class FullscreenWindowObserver: NSObject {
         switch notification.name {
         case NSWindow.didEnterFullScreenNotification:
             onFullscreenChange?(true)
-            DispatchQueue.main.async { [weak self] in
-                self?.fillFullscreenDisplay()
-            }
         case NSWindow.didExitFullScreenNotification:
             onFullscreenChange?(false)
         default:
@@ -273,18 +415,5 @@ final class FullscreenWindowObserver: NSObject {
     private func publishCurrentState() {
         guard let window else { return }
         onFullscreenChange?(window.styleMask.contains(.fullScreen))
-    }
-
-    private func fillFullscreenDisplay() {
-        guard isEmulationPresentationActive,
-              let window,
-              window.styleMask.contains(.fullScreen),
-              let screen = window.screen else {
-            return
-        }
-
-        let displayFrame = screen.frame
-        guard window.frame != displayFrame else { return }
-        window.setFrame(displayFrame, display: true, animate: false)
     }
 }

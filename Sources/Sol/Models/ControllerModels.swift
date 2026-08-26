@@ -186,6 +186,26 @@ struct SolEngineControllerMapping: Equatable {
     let inputName: String
     let player: SolEnginePlayerIndex
     var bindings: [SolEngineLogicalControl: SolEnginePhysicalButton]
+    var tuning: SolEngineControllerTuning
+}
+
+struct SolEngineControllerTuning: Equatable {
+    var deadzoneLeft: Double = 0.1
+    var deadzoneRight: Double = 0.1
+    var rangeLeft: Double = 1
+    var rangeRight: Double = 1
+    var triggerThreshold: Double = 0.5
+    var motionEnabled = true
+    var motionSensitivity = 100
+    var gyroDeadzone: Double = 1
+    var rumbleEnabled = false
+    var strongRumble: Double = 1
+    var weakRumble: Double = 1
+    var hdRumble = false
+    var ledEnabled = false
+    var ledOff = false
+    var ledRainbow = false
+    var ledColor: UInt32 = 0x007AFF
 }
 
 struct ControllerInfo: Identifiable, Hashable {
